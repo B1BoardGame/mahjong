@@ -65,7 +65,7 @@ h1 {
 }
 
 .info-area {
-    margin: 10px 4px 14px;
+    margin: 12px 4px 16px;
     font-size: 12px;
     line-height: 1.6;
     white-space: pre-line;
@@ -148,6 +148,7 @@ tbody tr:nth-child(even) {
 </div>
 
 <script>
+/* ================= 설정 ================= */
 const MIN_ROUND_FILTER_VALUE = 1;
 
 const INFO_TEXT = `
@@ -169,6 +170,7 @@ const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 
+/* ================= 공통 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
 
 let remain = REFRESH_SECONDS;
@@ -190,7 +192,13 @@ function fetchSheet(gid) {
         .then(parseGviz);
 }
 
-/* 작은 표 */
+/* 숫자 파싱 (쉼표 제거 포함) */
+function toNumber(v) {
+    if (v === null || v === undefined) return 0;
+    return Number(String(v).replace(/,/g, "").trim()) || 0;
+}
+
+/* ================= 작은 표 ================= */
 fetchSheet(SMALL_GID).then(json => {
     const body = document.getElementById("small-body");
 
@@ -204,11 +212,13 @@ fetchSheet(SMALL_GID).then(json => {
 
             const tdMerge = document.createElement("td");
             tdMerge.colSpan = 3;
+
             const merged = [
                 row.c[1]?.v,
                 row.c[2]?.v,
                 row.c[3]?.v
-            ].filter(Boolean).join("\n");
+            ].filter(v => v !== null && v !== undefined)
+             .join("\n");
 
             tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
             tr.appendChild(tdMerge);
@@ -224,7 +234,7 @@ fetchSheet(SMALL_GID).then(json => {
     });
 });
 
-/* ================= 메인 랭킹 (정렬 버그 수정 버전) ================= */
+/* ================= 메인 랭킹 ================= */
 fetchSheet(MAIN_GID).then(json => {
     const rows = json.table.rows;
     const cols = json.table.cols;
@@ -249,14 +259,14 @@ fetchSheet(MAIN_GID).then(json => {
             const v = r.c.map(c => c?.v ?? "");
             return {
                 raw: v,
-                col2: Number(v[1]) || 0,
-                col3: Number(v[2]) || 0,
-                col4: Number(v[3]) || 0
+                col2: toNumber(v[1]),
+                col3: toNumber(v[2]),
+                col4: toNumber(v[3])
             };
         })
         .filter(r => r.col2 >= MIN_ROUND_FILTER_VALUE);
 
-    // ✅ 정확한 2단계 정렬 (4열 → 3열)
+    // ✅ 1차: 4열 / 2차: 3열 (둘 다 내림차순)
     data.sort((a, b) => {
         if (b.col4 !== a.col4) return b.col4 - a.col4;
         if (b.col3 !== a.col3) return b.col3 - a.col3;
