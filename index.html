@@ -37,6 +37,7 @@
             border: 1px solid #ccc;
             padding: 6px;
             text-align: center;
+            vertical-align: middle;
         }
 
         tbody tr:nth-child(even) {
@@ -56,14 +57,14 @@
         }
 
         .left-box {
-            flex: 7;
+            flex: 65;
             border: 1px solid #ddd;
             padding: 10px;
             border-radius: 6px;
         }
 
         .right-box {
-            flex: 3;
+            flex: 35;
             border: 1px solid #ddd;
             padding: 10px;
             border-radius: 6px;
@@ -73,6 +74,14 @@
         .right-box img {
             max-width: 100%;
             cursor: pointer;
+        }
+
+        .note {
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-line;
+            opacity: 0.85;
         }
 
         .main-table-wrapper {
@@ -112,6 +121,18 @@
         <table>
             <tbody id="small-body"></tbody>
         </table>
+
+        <!-- 계산 공식 설명 -->
+        <div class="note">
+* 계산 공식
+닉네임 기준으로, 매월 기본점수 1000점으로 리셋
+포인트 = ( {획득 점수} + {등위 점수} ) × {대국 계수} (소수점 아래 정수로 반올림)
+획득 점수 = ( {자신이 가진 점수} - 25000 ) / 1000
+등위 점수 = 1등:25점, 2등:10점, 3등:-10점, 4등:-25점 (획득 점수가 동일한 경우, 북&gt;서&gt;남&gt;동 순으로 우선함)
+대국 계수 = 동장전: ×1, 남장전: ×2.1
+
+⚠️ 검증을 통해 획득 점수 총합이 10000이 되지 않는 경기는 무효.
+        </div>
     </div>
 
     <!-- QR -->
@@ -149,7 +170,7 @@ setInterval(() => {
     if (remain < 0) location.reload();
 }, 1000);
 
-/* ================= Google JSON 파서 ================= */
+/* ================= JSON 파서 ================= */
 function parseGviz(text) {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
@@ -170,25 +191,28 @@ fetchSheet(SMALL_GID).then(json => {
     rows.forEach((row, index) => {
         const tr = document.createElement("tr");
 
-        // 첫 번째 행: 1열 + (2~4열 합치기)
+        // 첫 번째 행: 1열 + (2~4열 병합)
         if (index === 0) {
             const td1 = document.createElement("td");
-            td1.textContent = row.c[0]?.v ?? "";
+            td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
             tr.appendChild(td1);
 
             const tdMerge = document.createElement("td");
             tdMerge.colSpan = 3;
+
             const v2 = row.c[1]?.v ?? "";
             const v3 = row.c[2]?.v ?? "";
             const v4 = row.c[3]?.v ?? "";
-            tdMerge.textContent = `${v2} ${v3} ${v4}`.trim();
+
+            const merged = `${v2}\n${v3}\n${v4}`.trim();
+            tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
             tr.appendChild(tdMerge);
         } 
-        // 나머지 행은 그대로 출력
+        // 나머지 행
         else {
             row.c.forEach(cell => {
                 const td = document.createElement("td");
-                td.textContent = cell?.v ?? "";
+                td.innerHTML = (cell?.v ?? "").toString().replace(/\n/g, "<br>");
                 tr.appendChild(td);
             });
         }
@@ -205,7 +229,6 @@ fetchSheet(MAIN_GID).then(json => {
     const header = document.getElementById("main-header");
     const body = document.getElementById("main-body");
 
-    // 헤더
     const rankTh = document.createElement("th");
     rankTh.textContent = "순위";
     header.appendChild(rankTh);
