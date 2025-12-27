@@ -10,7 +10,6 @@
         body {
             font-family: Arial, sans-serif;
             margin: 10px;
-            padding: 0;
             background: #ffffff;
             color: #000;
         }
@@ -20,7 +19,6 @@
             margin-bottom: 10px;
         }
 
-        /* 상단 새로고침 표시 */
         #refresh-timer {
             position: fixed;
             top: 8px;
@@ -29,7 +27,6 @@
             opacity: 0.8;
         }
 
-        /* 공통 테이블 */
         table {
             border-collapse: collapse;
             width: 100%;
@@ -53,7 +50,6 @@
             background-color: #fafafa;
         }
 
-        /* 상단 2분할 영역 */
         .top-section {
             display: flex;
             gap: 12px;
@@ -74,16 +70,12 @@
 
         .right-box img {
             max-width: 100%;
-            height: auto;
-            margin-top: 8px;
         }
 
-        /* 메인 테이블 여백 줄이기 */
         .main-table-wrapper {
             margin: 0 4px;
         }
 
-        /* 다크모드 */
         @media (prefers-color-scheme: dark) {
             body {
                 background: #121212;
@@ -116,157 +108,129 @@
 
 <h1>B1 마작 순위</h1>
 
-<!-- 상단 2분할 영역 -->
 <div class="top-section">
-    <!-- 왼쪽: 작은 테이블 -->
     <div class="left-box">
-        <table id="small-table">
-            <thead>
-                <tr id="small-header"></tr>
-            </thead>
+        <table>
+            <thead><tr id="small-header"></tr></thead>
             <tbody id="small-body"></tbody>
         </table>
     </div>
 
-    <!-- 오른쪽: QR -->
     <div class="right-box">
-        <div><strong>마작 점수 입력 QR</strong></div>
+        <strong>마작 점수 입력 QR</strong><br />
         <img src="images/input.png" alt="마작 점수 입력 QR">
     </div>
 </div>
 
-<!-- 메인 테이블 -->
 <div class="main-table-wrapper">
-    <table id="main-table">
-        <thead>
-            <tr id="main-header"></tr>
-        </thead>
+    <table>
+        <thead><tr id="main-header"></tr></thead>
         <tbody id="main-body"></tbody>
     </table>
 </div>
 
 <script>
-/* =====================================================
-   🔧 수정하기 쉬운 설정 영역
-===================================================== */
-
-// 메인 테이블: 두 번째 열 필터 기준
+/* ================= 설정 ================= */
 const MIN_SECOND_COLUMN_VALUE = 2;
-
-// 자동 새로고침 시간 (초)
 const REFRESH_SECONDS = 600;
 
-
-/* =====================================================
-   Google Spreadsheet 정보
-===================================================== */
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
-
-// 메인 랭킹 시트
 const MAIN_GID = "1729121045";
-
-// 작은 표 시트
 const SMALL_GID = "801258754";
 
-
-/* =====================================================
-   자동 새로고침 카운트다운
-===================================================== */
+/* ================= 새로고침 타이머 ================= */
 let remaining = REFRESH_SECONDS;
 const timerEl = document.getElementById("refresh-timer");
 
 setInterval(() => {
     remaining--;
     timerEl.textContent = `${remaining} 초 후 새로고침`;
-
-    if (remaining <= 0) {
-        location.reload();
-    }
+    if (remaining <= 0) location.reload();
 }, 1000);
 
-
-/* =====================================================
-   데이터 불러오기 함수
-===================================================== */
-function fetchSheet(gid) {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}&tqx=out:json`;
-    return fetch(url)
-        .then(res => res.text())
-        .then(text => JSON.parse(text.substring(47, text.length - 2)));
+/* ================= 안전한 JSON 파서 ================= */
+function parseGviz(text) {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    return JSON.parse(text.substring(start, end + 1));
 }
 
+/* ================= 공통 fetch ================= */
+function fetchSheet(gid) {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}`;
+    return fetch(url)
+        .then(r => r.text())
+        .then(parseGviz);
+}
 
-/* =====================================================
-   작은 표 (그대로 출력)
-===================================================== */
-fetchSheet(SMALL_GID).then(json => {
-    const cols = json.table.cols;
-    const rows = json.table.rows;
+/* ================= 작은 표 ================= */
+fetchSheet(SMALL_GID)
+    .then(json => {
+        const cols = json.table.cols;
+        const rows = json.table.rows;
 
-    const header = document.getElementById("small-header");
-    const body = document.getElementById("small-body");
+        const header = document.getElementById("small-header");
+        const body = document.getElementById("small-body");
 
-    cols.forEach(c => {
-        const th = document.createElement("th");
-        th.textContent = c.label || "";
-        header.appendChild(th);
-    });
-
-    rows.forEach(r => {
-        const tr = document.createElement("tr");
-        r.c.forEach(cell => {
-            const td = document.createElement("td");
-            td.textContent = cell ? cell.v : "";
-            tr.appendChild(td);
+        cols.forEach(c => {
+            const th = document.createElement("th");
+            th.textContent = c.label || "";
+            header.appendChild(th);
         });
-        body.appendChild(tr);
-    });
-});
 
+        rows.forEach(r => {
+            const tr = document.createElement("tr");
+            r.c.forEach(cell => {
+                const td = document.createElement("td");
+                td.textContent = cell?.v ?? "";
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+    })
+    .catch(err => console.error("작은 표 로딩 실패:", err));
 
-/* =====================================================
-   메인 랭킹 테이블
-===================================================== */
-fetchSheet(MAIN_GID).then(json => {
-    const cols = json.table.cols;
-    const rows = json.table.rows;
+/* ================= 메인 랭킹 표 ================= */
+fetchSheet(MAIN_GID)
+    .then(json => {
+        const cols = json.table.cols;
+        const rows = json.table.rows;
 
-    const header = document.getElementById("main-header");
-    const body = document.getElementById("main-body");
+        const header = document.getElementById("main-header");
+        const body = document.getElementById("main-body");
 
-    // 헤더
-    const rankTh = document.createElement("th");
-    rankTh.textContent = "순위";
-    header.appendChild(rankTh);
-
-    for (let i = 0; i < 3; i++) {
-        const th = document.createElement("th");
-        th.textContent = cols[i].label || "";
-        header.appendChild(th);
-    }
-
-    // 데이터 가공
-    const data = rows
-        .map(r => r.c.map(c => (c ? c.v : "")))
-        .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
-        .sort((a, b) => Number(b[2]) - Number(a[2]));
-
-    data.forEach((row, index) => {
-        const tr = document.createElement("tr");
-
-        const rankTd = document.createElement("td");
-        rankTd.textContent = index + 1;
-        tr.appendChild(rankTd);
+        const rankTh = document.createElement("th");
+        rankTh.textContent = "순위";
+        header.appendChild(rankTh);
 
         for (let i = 0; i < 3; i++) {
-            const td = document.createElement("td");
-            td.textContent = row[i];
-            tr.appendChild(td);
+            const th = document.createElement("th");
+            th.textContent = cols[i].label || "";
+            header.appendChild(th);
         }
 
-        body.appendChild(tr);
-    });
-});
+        const data = rows
+            .map(r => r.c.map(c => c?.v ?? ""))
+            .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
+            .sort((a, b) => Number(b[2]) - Number(a[2]));
+
+        data.forEach((row, index) => {
+            const tr = document.createElement("tr");
+
+            const rankTd = document.createElement("td");
+            rankTd.textContent = index + 1;
+            tr.appendChild(rankTd);
+
+            for (let i = 0; i < 3; i++) {
+                const td = document.createElement("td");
+                td.textContent = row[i];
+                tr.appendChild(td);
+            }
+
+            body.appendChild(tr);
+        });
+    })
+    .catch(err => console.error("메인 표 로딩 실패:", err));
 </script>
 
 </body>
