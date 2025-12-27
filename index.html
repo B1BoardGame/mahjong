@@ -2,128 +2,271 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>Google Spreadsheet Table</title>
+    <title>B1 보드게임카페 부평구청점 마작 순위</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <style>
         body {
             font-family: Arial, sans-serif;
-            padding: 20px;
+            margin: 10px;
+            padding: 0;
+            background: #ffffff;
+            color: #000;
         }
 
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        /* 상단 새로고침 표시 */
+        #refresh-timer {
+            position: fixed;
+            top: 8px;
+            right: 12px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* 공통 테이블 */
         table {
             border-collapse: collapse;
             width: 100%;
         }
 
         thead th {
-            background-color: #f2f2f2;
+            background-color: #f0f0f0;
             font-weight: bold;
+            padding: 8px;
             border: 1px solid #ccc;
-            padding: 10px;
             text-align: center;
         }
 
         tbody td {
             border: 1px solid #ccc;
-            padding: 8px;
+            padding: 6px;
             text-align: center;
         }
 
         tbody tr:nth-child(even) {
             background-color: #fafafa;
         }
+
+        /* 상단 2분할 영역 */
+        .top-section {
+            display: flex;
+            gap: 12px;
+            margin: 10px 0 20px;
+        }
+
+        .left-box,
+        .right-box {
+            flex: 1;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .right-box {
+            text-align: center;
+        }
+
+        .right-box img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 8px;
+        }
+
+        /* 메인 테이블 여백 줄이기 */
+        .main-table-wrapper {
+            margin: 0 4px;
+        }
+
+        /* 다크모드 */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #121212;
+                color: #e0e0e0;
+            }
+
+            thead th {
+                background-color: #2a2a2a;
+                border-color: #444;
+            }
+
+            tbody td {
+                border-color: #444;
+            }
+
+            tbody tr:nth-child(even) {
+                background-color: #1e1e1e;
+            }
+
+            .left-box,
+            .right-box {
+                border-color: #444;
+            }
+        }
     </style>
 </head>
 <body>
 
-<h2>구글 스프레드시트 데이터 출력</h2>
+<div id="refresh-timer"></div>
 
-<table id="data-table">
-    <thead>
-        <tr id="header-row"></tr>
-    </thead>
-    <tbody id="table-body"></tbody>
-</table>
+<h1>B1 마작 순위</h1>
+
+<!-- 상단 2분할 영역 -->
+<div class="top-section">
+    <!-- 왼쪽: 작은 테이블 -->
+    <div class="left-box">
+        <table id="small-table">
+            <thead>
+                <tr id="small-header"></tr>
+            </thead>
+            <tbody id="small-body"></tbody>
+        </table>
+    </div>
+
+    <!-- 오른쪽: QR -->
+    <div class="right-box">
+        <div><strong>마작 점수 입력 QR</strong></div>
+        <img src="images/input.png" alt="마작 점수 입력 QR">
+    </div>
+</div>
+
+<!-- 메인 테이블 -->
+<div class="main-table-wrapper">
+    <table id="main-table">
+        <thead>
+            <tr id="main-header"></tr>
+        </thead>
+        <tbody id="main-body"></tbody>
+    </table>
+</div>
 
 <script>
 /* =====================================================
-   🔧 사용자가 나중에 쉽게 수정할 수 있는 설정 영역
+   🔧 수정하기 쉬운 설정 영역
 ===================================================== */
 
-// 두 번째 열 값이 이 숫자 이상일 때만 출력
+// 메인 테이블: 두 번째 열 필터 기준
 const MIN_SECOND_COLUMN_VALUE = 2;
+
+// 자동 새로고침 시간 (초)
+const REFRESH_SECONDS = 600;
 
 
 /* =====================================================
    Google Spreadsheet 정보
 ===================================================== */
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
-const GID = "1729121045";
 
-// Google Visualization API (gid 사용 가능)
-const QUERY_URL =
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}&tqx=out:json`;
+// 메인 랭킹 시트
+const MAIN_GID = "1729121045";
+
+// 작은 표 시트
+const SMALL_GID = "801258754";
 
 
 /* =====================================================
-   데이터 로딩
+   자동 새로고침 카운트다운
 ===================================================== */
-fetch(QUERY_URL)
-    .then(res => res.text())
-    .then(text => {
-        // Google Visualization JSON 파싱
-        const json = JSON.parse(text.substring(47, text.length - 2));
+let remaining = REFRESH_SECONDS;
+const timerEl = document.getElementById("refresh-timer");
 
-        const cols = json.table.cols;
-        const rows = json.table.rows;
+setInterval(() => {
+    remaining--;
+    timerEl.textContent = `${remaining} 초 후 새로고침`;
 
-        // ===== 헤더 생성 =====
-        const headerRow = document.getElementById("header-row");
+    if (remaining <= 0) {
+        location.reload();
+    }
+}, 1000);
 
-        // 첫 번째 열: 순위
-        const rankTh = document.createElement("th");
-        rankTh.textContent = "순위";
-        headerRow.appendChild(rankTh);
 
-        // 시트의 앞 3개 열만 사용해서 총 4열 구성
+/* =====================================================
+   데이터 불러오기 함수
+===================================================== */
+function fetchSheet(gid) {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}&tqx=out:json`;
+    return fetch(url)
+        .then(res => res.text())
+        .then(text => JSON.parse(text.substring(47, text.length - 2)));
+}
+
+
+/* =====================================================
+   작은 표 (그대로 출력)
+===================================================== */
+fetchSheet(SMALL_GID).then(json => {
+    const cols = json.table.cols;
+    const rows = json.table.rows;
+
+    const header = document.getElementById("small-header");
+    const body = document.getElementById("small-body");
+
+    cols.forEach(c => {
+        const th = document.createElement("th");
+        th.textContent = c.label || "";
+        header.appendChild(th);
+    });
+
+    rows.forEach(r => {
+        const tr = document.createElement("tr");
+        r.c.forEach(cell => {
+            const td = document.createElement("td");
+            td.textContent = cell ? cell.v : "";
+            tr.appendChild(td);
+        });
+        body.appendChild(tr);
+    });
+});
+
+
+/* =====================================================
+   메인 랭킹 테이블
+===================================================== */
+fetchSheet(MAIN_GID).then(json => {
+    const cols = json.table.cols;
+    const rows = json.table.rows;
+
+    const header = document.getElementById("main-header");
+    const body = document.getElementById("main-body");
+
+    // 헤더
+    const rankTh = document.createElement("th");
+    rankTh.textContent = "순위";
+    header.appendChild(rankTh);
+
+    for (let i = 0; i < 3; i++) {
+        const th = document.createElement("th");
+        th.textContent = cols[i].label || "";
+        header.appendChild(th);
+    }
+
+    // 데이터 가공
+    const data = rows
+        .map(r => r.c.map(c => (c ? c.v : "")))
+        .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
+        .sort((a, b) => Number(b[2]) - Number(a[2]));
+
+    data.forEach((row, index) => {
+        const tr = document.createElement("tr");
+
+        const rankTd = document.createElement("td");
+        rankTd.textContent = index + 1;
+        tr.appendChild(rankTd);
+
         for (let i = 0; i < 3; i++) {
-            const th = document.createElement("th");
-            th.textContent = cols[i].label || `컬럼 ${i + 1}`;
-            headerRow.appendChild(th);
+            const td = document.createElement("td");
+            td.textContent = row[i];
+            tr.appendChild(td);
         }
 
-        // ===== 데이터 가공 =====
-        let dataRows = rows
-            .map(r => r.c.map(c => (c ? c.v : "")))
-            // 두 번째 열 값 필터링
-            .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
-            // 세 번째 열 기준 내림차순 정렬
-            .sort((a, b) => Number(b[2]) - Number(a[2]));
-
-        // ===== 테이블 출력 =====
-        const tbody = document.getElementById("table-body");
-
-        dataRows.forEach((row, index) => {
-            const tr = document.createElement("tr");
-
-            // 순위
-            const rankTd = document.createElement("td");
-            rankTd.textContent = index + 1;
-            tr.appendChild(rankTd);
-
-            // 앞의 3개 컬럼만 출력
-            for (let i = 0; i < 3; i++) {
-                const td = document.createElement("td");
-                td.textContent = row[i];
-                tr.appendChild(td);
-            }
-
-            tbody.appendChild(tr);
-        });
-    })
-    .catch(err => {
-        console.error(err);
-        alert("스프레드시트 데이터를 불러오지 못했습니다.");
+        body.appendChild(tr);
     });
+});
 </script>
 
 </body>
