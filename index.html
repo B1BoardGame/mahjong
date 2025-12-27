@@ -24,9 +24,57 @@ h1 {
     right: 12px;
     font-size: 12px;
     opacity: 0.8;
-    z-index: 300;
+    z-index: 1000;
 }
 
+/* ===== sticky 영역 ===== */
+.sticky-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    background: inherit;
+    padding-bottom: 6px;
+}
+
+/* 상단 영역 */
+.top-section {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.left-box {
+    flex: 65;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    background: inherit;
+}
+
+.right-box {
+    flex: 35;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    background: inherit;
+}
+
+.right-box img {
+    max-width: 100%;
+    cursor: pointer;
+}
+
+/* 설명 텍스트 */
+.info-area {
+    margin: 10px 4px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-line;
+    opacity: 0.85;
+}
+
+/* 테이블 */
 table {
     border-collapse: collapse;
     width: 100%;
@@ -42,59 +90,27 @@ tbody tr:nth-child(even) {
     background: #fafafa;
 }
 
-/* 상단 영역 */
-.top-section {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.left-box {
-    flex: 65;
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 6px;
-}
-
-.right-box {
-    flex: 35;
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 6px;
-    text-align: center;
-}
-
-.right-box img {
-    max-width: 100%;
-    cursor: pointer;
-}
-
-/* 설명 텍스트 */
-.info-area {
-    margin: 12px 4px 16px;
-    font-size: 12px;
-    line-height: 1.6;
-    white-space: pre-line;
-    opacity: 0.85;
-}
-
-/* 메인 테이블 */
 .main-table-wrapper {
     margin: 0 4px;
 }
 
+/* 다크모드 */
 @media (prefers-color-scheme: dark) {
     body {
         background: #121212;
         color: #e0e0e0;
     }
+
     td, th {
         border-color: #444;
     }
+
     tbody tr:nth-child(even) {
         background: #1e1e1e;
     }
-    .left-box, .right-box {
+
+    .left-box,
+    .right-box {
         border-color: #444;
     }
 }
@@ -107,23 +123,25 @@ tbody tr:nth-child(even) {
 
 <h1>B1 마작 순위</h1>
 
-<!-- 상단 -->
-<div class="top-section">
-    <div class="left-box">
-        <table>
-            <tbody id="small-body"></tbody>
-        </table>
-    </div>
+<!-- ✅ sticky 영역 -->
+<div class="sticky-wrapper">
+    <div class="top-section">
+        <div class="left-box">
+            <table>
+                <tbody id="small-body"></tbody>
+            </table>
+        </div>
 
-    <div class="right-box">
-        <strong>마작 점수 입력 QR</strong><br><br>
-        <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
-            <img src="images/input.png" alt="마작 점수 입력 QR">
-        </a>
+        <div class="right-box">
+            <strong>마작 점수 입력 QR</strong><br><br>
+            <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
+                <img src="images/input.png" alt="마작 점수 입력 QR">
+            </a>
+        </div>
     </div>
 </div>
 
-<!-- 설명 텍스트 -->
+<!-- 설명 -->
 <div id="info-text" class="info-area"></div>
 
 <!-- 메인 테이블 -->
@@ -160,7 +178,7 @@ const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 
-/* ================= 초기 표시 ================= */
+/* ================= 초기 출력 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
 
 /* ================= 새로고침 ================= */
@@ -198,6 +216,7 @@ fetchSheet(SMALL_GID).then(json => {
 
             const tdMerge = document.createElement("td");
             tdMerge.colSpan = 3;
+
             const merged = [
                 row.c[1]?.v,
                 row.c[2]?.v,
@@ -236,31 +255,33 @@ fetchSheet(MAIN_GID).then(json => {
         header.appendChild(th);
     }
 
-    const processed = rows
+    // 가공
+    const data = rows
         .map(r => {
             const v = r.c.map(c => c?.v ?? "");
             return {
                 raw: v,
-                _col2: Number(v[1]) || 0,
-                _col3: Number(v[2]) || 0,
-                _col4: Number(v[3]) || 0
+                col2: Number(v[1]) || 0,
+                col3: Number(v[2]) || 0,
+                col4: Number(v[3]) || 0
             };
         })
-        .filter(r => r._col2 >= MIN_ROUND_FILTER_VALUE)
+        .filter(r => r.col2 >= MIN_ROUND_FILTER_VALUE)
         .sort((a, b) => {
-            if (b._col4 !== a._col4) return b._col4 - a._col4;
-            return b._col3 - a._col3;
+            if (b.col4 !== a.col4) return b.col4 - a.col4;
+            return b.col3 - a.col3;
         });
 
     let prevKey = null;
     let rank = 0;
 
-    processed.forEach((row, index) => {
-        const key = `${row._col4}|${row._col3}`;
+    data.forEach((row, index) => {
+        const key = `${row.col4}|${row.col3}`;
 
         if (key !== prevKey) {
             rank = index + 1;
         }
+
         prevKey = key;
 
         const tr = document.createElement("tr");
