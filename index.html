@@ -44,7 +44,6 @@
             background-color: #fafafa;
         }
 
-        /* 상단 고정 영역 */
         .top-section {
             display: flex;
             gap: 12px;
@@ -142,7 +141,9 @@
 </div>
 
 <script>
-/* ================= 설정 ================= */
+/* ================= 사용자 설정 ================= */
+
+const MIN_ROUND_FILTER_VALUE = 1;
 
 const INFO_TEXT = `
 ℹ️ 계산 공식
@@ -157,17 +158,16 @@ const INFO_TEXT = `
 ⚠️ 동점일 경우, 판수가 많은 사람이 상위
 `;
 
-const MIN_SECOND_COLUMN_VALUE = 2;
 const REFRESH_SECONDS = 600;
 
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 
-/* ================= 초기 표시 ================= */
+/* ================= 초기 출력 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
 
-/* ================= 새로고침 ================= */
+/* ================= 새로고침 타이머 ================= */
 let remain = REFRESH_SECONDS;
 setInterval(() => {
     document.getElementById("refresh-timer").textContent =
@@ -175,7 +175,7 @@ setInterval(() => {
     if (remain < 0) location.reload();
 }, 1000);
 
-/* ================= JSON 파서 ================= */
+/* ================= 유틸 ================= */
 function parseGviz(text) {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
@@ -244,16 +244,15 @@ fetchSheet(MAIN_GID).then(json => {
 
     const data = rows
         .map(r => r.c.map(c => c?.v ?? ""))
-        .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
+        .filter(r => Number(r[1]) >= MIN_ROUND_FILTER_VALUE)
         .sort((a, b) => {
-            const scoreA = Number(a[3]);
-            const scoreB = Number(b[3]);
+            const v4a = Number(a[3]);
+            const v4b = Number(b[3]);
+            if (v4b !== v4a) return v4b - v4a;
 
-            if (scoreB !== scoreA) return scoreB - scoreA;
-
-            const subA = Number(a[2]);
-            const subB = Number(b[2]);
-            return subB - subA;
+            const v3a = Number(a[2]);
+            const v3b = Number(b[2]);
+            return v3b - v3a;
         });
 
     let prevKey = null;
