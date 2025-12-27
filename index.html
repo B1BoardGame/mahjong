@@ -148,7 +148,6 @@ tbody tr:nth-child(even) {
 
 <script>
 /* ================= 설정 ================= */
-const MIN_ROUND_FILTER_VALUE = 3;
 const REFRESH_SECONDS = 600; // ✅ 다시 600초
 
 const INFO_TEXT = `
@@ -251,16 +250,14 @@ fetchSheet(MAIN_GID).then(json => {
         header.appendChild(th);
     }
 
-    const data = rows
-        .map(r => {
-            const v = r.c.map(c => c?.v ?? "");
-            return {
-                raw: v,
-                third: toNumber(v[1]),   // HTML 3열
-                fourth: toNumber(v[2])   // HTML 4열
-            };
-        })
-        .filter(r => r.third >= MIN_ROUND_FILTER_VALUE);
+    const data = rows.map(r => {
+        const v = r.c.map(c => c?.v ?? "");
+        return {
+            raw: v,
+            third: toNumber(v[1]),
+            fourth: toNumber(v[2])
+        };
+    });
 
     // 정렬: 4열 → 3열 (내림차순)
     data.sort((a, b) => {
