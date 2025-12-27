@@ -116,26 +116,14 @@
 <h1>B1 마작 순위</h1>
 
 <div class="top-section">
-    <!-- 작은 표 -->
     <div class="left-box">
         <table>
             <tbody id="small-body"></tbody>
         </table>
 
-        <!-- 계산 공식 설명 -->
-        <div class="note">
-* 계산 공식
-닉네임 기준으로, 매월 기본점수 1000점으로 리셋
-포인트 = ( {획득 점수} + {등위 점수} ) × {대국 계수} (소수점 아래 정수로 반올림)
-획득 점수 = ( {자신이 가진 점수} - 25000 ) / 1000
-등위 점수 = 1등:25점, 2등:10점, 3등:-10점, 4등:-25점 (획득 점수가 동일한 경우, 북&gt;서&gt;남&gt;동 순으로 우선함)
-대국 계수 = 동장전: ×1, 남장전: ×2.1
-
-⚠️ 검증을 통해 획득 점수 총합이 10000이 되지 않는 경기는 무효.
-        </div>
+        <div id="info-text" class="note"></div>
     </div>
 
-    <!-- QR -->
     <div class="right-box">
         <strong>마작 점수 입력 QR</strong><br><br>
         <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
@@ -155,12 +143,29 @@
 
 <script>
 /* ================= 설정 ================= */
-const MIN_SECOND_COLUMN_VALUE = 1;
+
+const INFO_TEXT = `
+ℹ️ 계산 공식
+매월 기본점수 1000점으로 리셋
+
+포인트 = ( {획득 점수} + {등위 점수} ) × {대국 계수} (소수점 아래 정수로 반올림)
+획득 점수 = ( {자신이 가진 점수} - 25000 ) / 1000
+등위 점수 = 1등:25점, 2등:10점, 3등:-10점, 4등:-25점 (획득 점수가 동일한 경우, 북>서>남>동 순으로 상위)
+대국 계수 = 동장전: ×1, 남장전: ×2.1
+
+⚠️ 검증을 통해 획득 점수 총합이 10000이 되지 않는 경기는 무효.
+⚠️ 동점일 경우, 판수가 많은 사람이 상위
+`;
+
+const MIN_SECOND_COLUMN_VALUE = 2;
 const REFRESH_SECONDS = 600;
 
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
+
+/* ================= 초기 표시 ================= */
+document.getElementById("info-text").textContent = INFO_TEXT;
 
 /* ================= 새로고침 ================= */
 let remain = REFRESH_SECONDS;
@@ -191,7 +196,6 @@ fetchSheet(SMALL_GID).then(json => {
     rows.forEach((row, index) => {
         const tr = document.createElement("tr");
 
-        // 첫 번째 행: 1열 + (2~4열 병합)
         if (index === 0) {
             const td1 = document.createElement("td");
             td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
@@ -200,16 +204,15 @@ fetchSheet(SMALL_GID).then(json => {
             const tdMerge = document.createElement("td");
             tdMerge.colSpan = 3;
 
-            const v2 = row.c[1]?.v ?? "";
-            const v3 = row.c[2]?.v ?? "";
-            const v4 = row.c[3]?.v ?? "";
+            const merged = [
+                row.c[1]?.v,
+                row.c[2]?.v,
+                row.c[3]?.v
+            ].filter(Boolean).join("\n");
 
-            const merged = `${v2}\n${v3}\n${v4}`.trim();
             tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
             tr.appendChild(tdMerge);
-        } 
-        // 나머지 행
-        else {
+        } else {
             row.c.forEach(cell => {
                 const td = document.createElement("td");
                 td.innerHTML = (cell?.v ?? "").toString().replace(/\n/g, "<br>");
@@ -242,19 +245,28 @@ fetchSheet(MAIN_GID).then(json => {
     const data = rows
         .map(r => r.c.map(c => c?.v ?? ""))
         .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
-        .sort((a, b) => Number(b[2]) - Number(a[2]));
+        .sort((a, b) => {
+            const scoreA = Number(a[3]);
+            const scoreB = Number(b[3]);
 
-    let prevScore = null;
+            if (scoreB !== scoreA) return scoreB - scoreA;
+
+            const subA = Number(a[2]);
+            const subB = Number(b[2]);
+            return subB - subA;
+        });
+
+    let prevKey = null;
     let rank = 0;
 
     data.forEach((row, index) => {
-        const score = Number(row[2]);
+        const key = `${row[3]}|${row[2]}`;
 
-        if (score !== prevScore) {
+        if (key !== prevKey) {
             rank = index + 1;
         }
 
-        prevScore = score;
+        prevKey = key;
 
         const tr = document.createElement("tr");
 
