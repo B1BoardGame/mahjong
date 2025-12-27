@@ -25,6 +25,7 @@
             right: 12px;
             font-size: 12px;
             opacity: 0.8;
+            z-index: 200;
         }
 
         table {
@@ -50,26 +51,40 @@
             background-color: #fafafa;
         }
 
+        /* ===== 상단 고정 영역 ===== */
         .top-section {
             display: flex;
             gap: 12px;
-            margin: 10px 0 20px;
+            margin: 10px 0 16px;
+
+            position: sticky;
+            top: 0;
+            z-index: 100;
+
+            background: inherit;
+            padding-top: 6px;
+            padding-bottom: 6px;
         }
 
-        .left-box,
-        .right-box {
-            flex: 1;
+        .left-box {
+            flex: 7;
             border: 1px solid #ddd;
             padding: 10px;
             border-radius: 6px;
         }
 
         .right-box {
+            flex: 3;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 6px;
             text-align: center;
         }
 
         .right-box img {
             max-width: 100%;
+            height: auto;
+            cursor: pointer;
         }
 
         .main-table-wrapper {
@@ -109,16 +124,22 @@
 <h1>B1 마작 순위</h1>
 
 <div class="top-section">
+    <!-- 왼쪽 작은 표 -->
     <div class="left-box">
         <table>
-            <thead><tr id="small-header"></tr></thead>
+            <thead>
+                <tr id="small-header"></tr>
+            </thead>
             <tbody id="small-body"></tbody>
         </table>
     </div>
 
+    <!-- 오른쪽 QR -->
     <div class="right-box">
-        <strong>마작 점수 입력 QR</strong><br />
-        <img src="images/input.png" alt="마작 점수 입력 QR">
+        <strong>마작 점수 입력 QR</strong><br><br>
+        <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
+            <img src="images/input.png" alt="마작 점수 입력 QR">
+        </a>
     </div>
 </div>
 
@@ -131,7 +152,7 @@
 
 <script>
 /* ================= 설정 ================= */
-const MIN_SECOND_COLUMN_VALUE = 2;
+const MIN_SECOND_COLUMN_VALUE = 1;
 const REFRESH_SECONDS = 600;
 
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
@@ -148,89 +169,102 @@ setInterval(() => {
     if (remaining <= 0) location.reload();
 }, 1000);
 
-/* ================= 안전한 JSON 파서 ================= */
+/* ================= JSON 파싱 ================= */
 function parseGviz(text) {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     return JSON.parse(text.substring(start, end + 1));
 }
 
-/* ================= 공통 fetch ================= */
 function fetchSheet(gid) {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}`;
-    return fetch(url)
+    return fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}`)
         .then(r => r.text())
         .then(parseGviz);
 }
 
-/* ================= 작은 표 ================= */
-fetchSheet(SMALL_GID)
-    .then(json => {
-        const cols = json.table.cols;
-        const rows = json.table.rows;
+/* ================= 작은 표 처리 ================= */
+fetchSheet(SMALL_GID).then(json => {
+    const cols = json.table.cols;
+    const rows = json.table.rows;
 
-        const header = document.getElementById("small-header");
-        const body = document.getElementById("small-body");
+    const header = document.getElementById("small-header");
+    const body = document.getElementById("small-body");
 
-        cols.forEach(c => {
-            const th = document.createElement("th");
-            th.textContent = c.label || "";
-            header.appendChild(th);
-        });
+    // 헤더 출력
+    cols.forEach(c => {
+        const th = document.createElement("th");
+        th.textContent = c.label || "";
+        header.appendChild(th);
+    });
 
-        rows.forEach(r => {
-            const tr = document.createElement("tr");
-            r.c.forEach(cell => {
+    rows.forEach((row, index) => {
+        // 첫 번째 행 제거
+        if (index === 0) return;
+
+        const tr = document.createElement("tr");
+
+        // 두 번째 행 → 2~4열 병합
+        if (index === 1) {
+            const td = document.createElement("td");
+            td.colSpan = 3;
+
+            const v2 = row.c[1]?.v ?? "";
+            const v3 = row.c[2]?.v ?? "";
+            const v4 = row.c[3]?.v ?? "";
+
+            td.textContent = `${v2} ${v3} ${v4}`.trim();
+            tr.appendChild(td);
+        } else {
+            row.c.forEach(cell => {
                 const td = document.createElement("td");
                 td.textContent = cell?.v ?? "";
                 tr.appendChild(td);
             });
-            body.appendChild(tr);
-        });
-    })
-    .catch(err => console.error("작은 표 로딩 실패:", err));
-
-/* ================= 메인 랭킹 표 ================= */
-fetchSheet(MAIN_GID)
-    .then(json => {
-        const cols = json.table.cols;
-        const rows = json.table.rows;
-
-        const header = document.getElementById("main-header");
-        const body = document.getElementById("main-body");
-
-        const rankTh = document.createElement("th");
-        rankTh.textContent = "순위";
-        header.appendChild(rankTh);
-
-        for (let i = 0; i < 3; i++) {
-            const th = document.createElement("th");
-            th.textContent = cols[i].label || "";
-            header.appendChild(th);
         }
 
-        const data = rows
-            .map(r => r.c.map(c => c?.v ?? ""))
-            .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
-            .sort((a, b) => Number(b[2]) - Number(a[2]));
+        body.appendChild(tr);
+    });
+});
 
-        data.forEach((row, index) => {
-            const tr = document.createElement("tr");
+/* ================= 메인 랭킹 표 ================= */
+fetchSheet(MAIN_GID).then(json => {
+    const cols = json.table.cols;
+    const rows = json.table.rows;
 
-            const rankTd = document.createElement("td");
-            rankTd.textContent = index + 1;
-            tr.appendChild(rankTd);
+    const header = document.getElementById("main-header");
+    const body = document.getElementById("main-body");
 
-            for (let i = 0; i < 3; i++) {
-                const td = document.createElement("td");
-                td.textContent = row[i];
-                tr.appendChild(td);
-            }
+    const rankTh = document.createElement("th");
+    rankTh.textContent = "순위";
+    header.appendChild(rankTh);
 
-            body.appendChild(tr);
-        });
-    })
-    .catch(err => console.error("메인 표 로딩 실패:", err));
+    for (let i = 0; i < 3; i++) {
+        const th = document.createElement("th");
+        th.textContent = cols[i].label || "";
+        header.appendChild(th);
+    }
+
+    const data = rows
+        .map(r => r.c.map(c => c?.v ?? ""))
+        .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
+        .sort((a, b) => Number(b[2]) - Number(a[2]));
+
+    data.forEach((row, index) => {
+        const tr = document.createElement("tr");
+
+        const rankTd = document.createElement("td");
+        rankTd.textContent = index + 1;
+        tr.appendChild(rankTd);
+
+        for (let i = 0; i < 3; i++) {
+            const td = document.createElement("td");
+            td.textContent = row[i];
+            tr.appendChild(td);
+        }
+
+        body.appendChild(tr);
+    });
+});
 </script>
 
 </body>
