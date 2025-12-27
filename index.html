@@ -33,15 +33,7 @@
             width: 100%;
         }
 
-        thead th {
-            background-color: #f0f0f0;
-            font-weight: bold;
-            padding: 8px;
-            border: 1px solid #ccc;
-            text-align: center;
-        }
-
-        tbody td {
+        td, th {
             border: 1px solid #ccc;
             padding: 6px;
             text-align: center;
@@ -51,19 +43,16 @@
             background-color: #fafafa;
         }
 
-        /* ===== 상단 고정 영역 ===== */
+        /* 상단 고정 영역 */
         .top-section {
             display: flex;
             gap: 12px;
             margin: 10px 0 16px;
-
             position: sticky;
             top: 0;
             z-index: 100;
-
             background: inherit;
-            padding-top: 6px;
-            padding-bottom: 6px;
+            padding: 6px 0;
         }
 
         .left-box {
@@ -83,7 +72,6 @@
 
         .right-box img {
             max-width: 100%;
-            height: auto;
             cursor: pointer;
         }
 
@@ -97,12 +85,7 @@
                 color: #e0e0e0;
             }
 
-            thead th {
-                background-color: #2a2a2a;
-                border-color: #444;
-            }
-
-            tbody td {
+            td, th {
                 border-color: #444;
             }
 
@@ -124,17 +107,14 @@
 <h1>B1 마작 순위</h1>
 
 <div class="top-section">
-    <!-- 왼쪽 작은 표 -->
+    <!-- 작은 표 -->
     <div class="left-box">
         <table>
-            <thead>
-                <tr id="small-header"></tr>
-            </thead>
             <tbody id="small-body"></tbody>
         </table>
     </div>
 
-    <!-- 오른쪽 QR -->
+    <!-- QR -->
     <div class="right-box">
         <strong>마작 점수 입력 QR</strong><br><br>
         <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
@@ -145,7 +125,9 @@
 
 <div class="main-table-wrapper">
     <table>
-        <thead><tr id="main-header"></tr></thead>
+        <thead>
+            <tr id="main-header"></tr>
+        </thead>
         <tbody id="main-body"></tbody>
     </table>
 </div>
@@ -159,17 +141,15 @@ const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 
-/* ================= 새로고침 타이머 ================= */
-let remaining = REFRESH_SECONDS;
-const timerEl = document.getElementById("refresh-timer");
-
+/* ================= 새로고침 ================= */
+let remain = REFRESH_SECONDS;
 setInterval(() => {
-    remaining--;
-    timerEl.textContent = `${remaining} 초 후 새로고침`;
-    if (remaining <= 0) location.reload();
+    document.getElementById("refresh-timer").textContent =
+        `${remain--} 초 후 새로고침`;
+    if (remain < 0) location.reload();
 }, 1000);
 
-/* ================= JSON 파싱 ================= */
+/* ================= Google JSON 파서 ================= */
 function parseGviz(text) {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
@@ -182,39 +162,30 @@ function fetchSheet(gid) {
         .then(parseGviz);
 }
 
-/* ================= 작은 표 처리 ================= */
+/* ================= 작은 표 ================= */
 fetchSheet(SMALL_GID).then(json => {
-    const cols = json.table.cols;
     const rows = json.table.rows;
-
-    const header = document.getElementById("small-header");
     const body = document.getElementById("small-body");
 
-    // 헤더 출력
-    cols.forEach(c => {
-        const th = document.createElement("th");
-        th.textContent = c.label || "";
-        header.appendChild(th);
-    });
-
     rows.forEach((row, index) => {
-        // 첫 번째 행 제거
-        if (index === 0) return;
-
         const tr = document.createElement("tr");
 
-        // 두 번째 행 → 2~4열 병합
-        if (index === 1) {
-            const td = document.createElement("td");
-            td.colSpan = 3;
+        // 첫 번째 행: 1열 + (2~4열 합치기)
+        if (index === 0) {
+            const td1 = document.createElement("td");
+            td1.textContent = row.c[0]?.v ?? "";
+            tr.appendChild(td1);
 
+            const tdMerge = document.createElement("td");
+            tdMerge.colSpan = 3;
             const v2 = row.c[1]?.v ?? "";
             const v3 = row.c[2]?.v ?? "";
             const v4 = row.c[3]?.v ?? "";
-
-            td.textContent = `${v2} ${v3} ${v4}`.trim();
-            tr.appendChild(td);
-        } else {
+            tdMerge.textContent = `${v2} ${v3} ${v4}`.trim();
+            tr.appendChild(tdMerge);
+        } 
+        // 나머지 행은 그대로 출력
+        else {
             row.c.forEach(cell => {
                 const td = document.createElement("td");
                 td.textContent = cell?.v ?? "";
@@ -234,6 +205,7 @@ fetchSheet(MAIN_GID).then(json => {
     const header = document.getElementById("main-header");
     const body = document.getElementById("main-body");
 
+    // 헤더
     const rankTh = document.createElement("th");
     rankTh.textContent = "순위";
     header.appendChild(rankTh);
@@ -249,11 +221,22 @@ fetchSheet(MAIN_GID).then(json => {
         .filter(r => Number(r[1]) >= MIN_SECOND_COLUMN_VALUE)
         .sort((a, b) => Number(b[2]) - Number(a[2]));
 
+    let prevScore = null;
+    let rank = 0;
+
     data.forEach((row, index) => {
+        const score = Number(row[2]);
+
+        if (score !== prevScore) {
+            rank = index + 1;
+        }
+
+        prevScore = score;
+
         const tr = document.createElement("tr");
 
         const rankTd = document.createElement("td");
-        rankTd.textContent = index + 1;
+        rankTd.textContent = rank;
         tr.appendChild(rankTd);
 
         for (let i = 0; i < 3; i++) {
