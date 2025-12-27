@@ -149,6 +149,7 @@ tbody tr:nth-child(even) {
 <script>
 /* ================= 설정 ================= */
 const MIN_ROUND_FILTER_VALUE = 1;
+const REFRESH_SECONDS = 30; // ✅ 30초로 변경
 
 const INFO_TEXT = `
 ℹ️ 계산 공식
@@ -158,12 +159,7 @@ const INFO_TEXT = `
 획득 점수 = ( {자신이 가진 점수} - 25000 ) / 1000
 등위 점수 = 1등:25점, 2등:10점, 3등:-10점, 4등:-25점 (획득 점수가 동일한 경우, 북>서>남>동 순으로 상위)
 대국 계수 = 동장전: ×1, 남장전: ×2.1
-
-⚠️ 검증을 통해 획득 점수 총합이 10000이 되지 않는 경기는 무효.
-⚠️ 동점일 경우, 판수가 많은 사람이 상위
 `;
-
-const REFRESH_SECONDS = 600;
 
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
@@ -196,42 +192,6 @@ function toNumber(v) {
     return Number(String(v).replace(/,/g, "").trim()) || 0;
 }
 
-/* ================= 작은 표 ================= */
-fetchSheet(SMALL_GID).then(json => {
-    const body = document.getElementById("small-body");
-
-    json.table.rows.forEach((row, idx) => {
-        const tr = document.createElement("tr");
-
-        if (idx === 0) {
-            const td1 = document.createElement("td");
-            td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
-            tr.appendChild(td1);
-
-            const tdMerge = document.createElement("td");
-            tdMerge.colSpan = 3;
-
-            const merged = [
-                row.c[1]?.v,
-                row.c[2]?.v,
-                row.c[3]?.v
-            ].filter(v => v !== null && v !== undefined)
-             .join("\n");
-
-            tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
-            tr.appendChild(tdMerge);
-        } else {
-            row.c.forEach(c => {
-                const td = document.createElement("td");
-                td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
-                tr.appendChild(td);
-            });
-        }
-
-        body.appendChild(tr);
-    });
-});
-
 /* ================= 메인 랭킹 ================= */
 fetchSheet(MAIN_GID).then(json => {
     const rows = json.table.rows;
@@ -257,26 +217,25 @@ fetchSheet(MAIN_GID).then(json => {
             const v = r.c.map(c => c?.v ?? "");
             return {
                 raw: v,
-                col2: toNumber(v[1]), // 스프레드시트 2열
-                col3: toNumber(v[2])  // 스프레드시트 3열
+                // HTML 기준
+                third: toNumber(v[1]),  // 3번째 열
+                fourth: toNumber(v[2])  // 4번째 열
             };
         })
-        .filter(r => r.col2 >= MIN_ROUND_FILTER_VALUE);
+        .filter(r => r.third >= MIN_ROUND_FILTER_VALUE);
 
-    // ✅ 정렬 기준
-    // 1순위: 스프레드시트 3열 (내림차순)
-    // 2순위: 스프레드시트 2열 (내림차순)
+    // ✅ 정렬
     data.sort((a, b) => {
-        if (b.col3 !== a.col3) return b.col3 - a.col3;
-        return b.col2 - a.col2;
+        if (b.fourth !== a.fourth) return b.fourth - a.fourth;
+        return b.third - a.third;
     });
 
     let prevKey = null;
     let rank = 0;
 
     data.forEach((row, index) => {
-        // 공동 순위 기준: 스프레드시트 2열 + 3열
-        const key = `${row.col2}|${row.col3}`;
+        // ✅ 공동 순위 조건: 4열 + 3열 모두 같을 때
+        const key = `${row.fourth}|${row.third}`;
 
         if (key !== prevKey) {
             rank = index + 1;
