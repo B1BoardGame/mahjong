@@ -27,7 +27,6 @@ h1 {
     z-index: 1000;
 }
 
-/* sticky 영역 */
 .sticky-wrapper {
     position: sticky;
     top: 0;
@@ -192,7 +191,6 @@ function fetchSheet(gid) {
         .then(parseGviz);
 }
 
-/* 숫자 파싱 (쉼표 제거 포함) */
 function toNumber(v) {
     if (v === null || v === undefined) return 0;
     return Number(String(v).replace(/,/g, "").trim()) || 0;
@@ -259,25 +257,26 @@ fetchSheet(MAIN_GID).then(json => {
             const v = r.c.map(c => c?.v ?? "");
             return {
                 raw: v,
-                col2: toNumber(v[1]),
-                col3: toNumber(v[2]),
-                col4: toNumber(v[3])
+                col2: toNumber(v[1]), // 스프레드시트 2열
+                col3: toNumber(v[2])  // 스프레드시트 3열
             };
         })
         .filter(r => r.col2 >= MIN_ROUND_FILTER_VALUE);
 
-    // ✅ 1차: 4열 / 2차: 3열 (둘 다 내림차순)
+    // ✅ 정렬 기준
+    // 1순위: 스프레드시트 3열 (내림차순)
+    // 2순위: 스프레드시트 2열 (내림차순)
     data.sort((a, b) => {
-        if (b.col4 !== a.col4) return b.col4 - a.col4;
         if (b.col3 !== a.col3) return b.col3 - a.col3;
-        return 0;
+        return b.col2 - a.col2;
     });
 
     let prevKey = null;
     let rank = 0;
 
     data.forEach((row, index) => {
-        const key = `${row.col4}|${row.col3}`;
+        // 공동 순위 기준: 스프레드시트 2열 + 3열
+        const key = `${row.col2}|${row.col3}`;
 
         if (key !== prevKey) {
             rank = index + 1;
