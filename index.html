@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" href="/images/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180x180.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#ffffff">
+  <title>B1 보드게임카페 부평구청점 보유게임 목록</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: sans-serif;
+      padding: 0;
+      background: var(--background);
+      color: var(--text);
+    }
+    h1 { text-align: center; }
+
+    /* ✅ 제목 아래 전체 폭 이미지 */
+    .full-width-image {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .table-container { overflow-x: auto; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      table-layout: fixed;
+      min-width: 600px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    th { background-color: #f2f2f2; }
+    @media (prefers-color-scheme: dark) {
+      th { background-color: #333; color: #fff; }
+    }
+    tr:nth-child(even) td { background-color: rgba(0, 0, 0, 0.03); }
+    .sort-btn {
+      margin-left: 5px;
+      font-size: 0.8em;
+      padding: 2px 5px;
+      cursor: pointer;
+    }
+    .sort-order {
+      font-size: 0.7em;
+      margin-left: 4px;
+      color: gray;
+    }
+    .filter-input {
+      width: 90%;
+      font-size: 0.8em;
+      margin-top: 4px;
+    }
+    @media (max-width: 768px) {
+      table { min-width: unset; }
+      th, td { font-size: 0.85em; }
+      .header-control {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .header-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+    .last-col {
+      font-family: sans-serif;
+      font-size: 0.75em;
+    }
+  </style>
+</head>
+<body>
+  <h1>B1 보유게임 목록</h1>
+
+  <!-- ✅ 제목 아래 전체 폭 이미지 -->
+  <a href="images/map.png" target="_blank" rel="noopener noreferrer">
+    <img src="images/map.png" alt="B1 보유게임 목록 관련 이미지" class="full-width-image">
+  </a>
+
+  <div class="table-container">
+    <table id="sheet-table"></table>
+  </div>
+
+  <script>
+    const sheetId = '1F9Ho9alBcuP1_PoJletmulKCJqPCVm8SLTq61_uWJMM';
+    const difficultyColumnIndex = 2;
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=0`;
+    const replaceUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=803160031`;
+
+    let originalData = [];
+    let tableData = [];
+    let headers = [];
+    let sortState = [];
+    let filterValues = [];
+    let replacements = {};
+
+    let lastIsMobile = window.innerWidth < 768;
+    let lastWidth = window.innerWidth;
+
+    fetch(replaceUrl)
+      .then(res => res.text())
+      .then(text => {
+        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/)[1]);
+        const rows = json.table.rows || [];
+        const map = {};
+        rows.forEach(r => {
+          if (!r || !r.c) return;
+          const k = r.c[0]?.v;
+          const v = r.c[1]?.v;
+          if (k == null || v == null) return;
+          map[String(k).trim()] = String(v).trim();
+        });
+        replacements = map;
+        renderContents();
+      });
+
+    fetch(url)
+      .then(res => res.text())
+      .then(text => {
+        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/)[1]);
+        const rows = json.table.rows;
+        const cols = json.table.cols;
+        const columnCount = cols.length - 1;
+
+        headers = cols.slice(0, columnCount).map(col => col.label);
+        originalData = rows.map(row =>
+          row.c.slice(0, columnCount).map(cell => cell?.v?.toString().replace(/\r?\n/g, '\n') || '-')
+        );
+
+        filterValues = new Array(headers.length).fill('');
+        tableData = [...originalData];
+
+        renderHeader();
+        renderContents();
+      });
+
+    function replaceSpecialTermsForLastColumn(text) {
+      if (text === null || text === undefined) return text;
+      let result = String(text).trim().replace(/\s+/g, ' ');
+      const keysSorted = Object.keys(replacements).sort((a, b) => b.length - a.length);
+      function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+      for (const key of keysSorted) {
+        const val = replacements[key];
+        const pattern = escapeRegex(key).replace(/ /g, '\\s+');
+        const regex = new RegExp(pattern, 'gi');
+        result = result.replace(regex, val + '\n');
+      }
+      return result.replace(/\n\s+/g, '\n');
+    }
+
+    function renderHeader() {
+      const table = document.getElementById('sheet-table');
+      const oldThead = table.querySelector('thead');
+      if (oldThead) oldThead.remove();
+
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      const isMobile = window.innerWidth < 768;
+
+      if (!isMobile) {
+        for (let idx = 0; idx < headers.length; idx++) {
+          headerRow.appendChild(createHeaderCell(idx));
+        }
+      } else {
+        const gridCols = Math.ceil(headers.length / 2);
+        for (let j = 0; j < gridCols; j++) {
+          const th = document.createElement('th');
+          const topIdx = j * 2;
+          const bottomIdx = j * 2 + 1;
+
+          if (topIdx < headers.length) th.appendChild(createHeaderControl(topIdx));
+          if (bottomIdx < headers.length) th.appendChild(createHeaderControl(bottomIdx));
+
+          headerRow.appendChild(th);
+        }
+      }
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+    }
+
+    function createHeaderCell(idx) {
+      const th = document.createElement('th');
+      const headerDiv = document.createElement('div');
+      headerDiv.style.display = 'flex';
+      headerDiv.style.alignItems = 'center';
+      headerDiv.style.justifyContent = 'space-between';
+
+      const text = document.createElement('span');
+      text.textContent = headers[idx] || '';
+
+      const sortBtn = document.createElement('button');
+      sortBtn.textContent = getSortSymbol(idx);
+      sortBtn.className = 'sort-btn';
+      sortBtn.addEventListener('click', () => {
+        updateSort(idx);
+        applyFilter();
+        applySort();
+        renderContents();
+      });
+
+      const order = document.createElement('span');
+      const sortIndex = sortState.findIndex(s => s.index === idx);
+      if (sortIndex !== -1) {
+        order.className = 'sort-order';
+        order.textContent = `${sortIndex + 1}`;
+      }
+
+      headerDiv.appendChild(text);
+      headerDiv.appendChild(sortBtn);
+      headerDiv.appendChild(order);
+
+      const input = createFilterInput(idx);
+      th.appendChild(headerDiv);
+      th.appendChild(input);
+      return th;
+    }
+
+    function createHeaderControl(index) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'header-control';
+
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'header-top-row';
+
+      const text = document.createElement('span');
+      text.textContent = headers[index] || '';
+
+      const sortBtn = document.createElement('button');
+      sortBtn.textContent = getSortSymbol(index);
+      sortBtn.className = 'sort-btn';
+      sortBtn.addEventListener('click', () => {
+        updateSort(index);
+        applyFilter();
+        applySort();
+        renderContents();
+      });
+
+      const order = document.createElement('span');
+      const sortIndex = sortState.findIndex(s => s.index === index);
+      if (sortIndex !== -1) {
+        order.className = 'sort-order';
+        order.textContent = `${sortIndex + 1}`;
+      }
+
+      headerDiv.appendChild(text);
+      headerDiv.appendChild(sortBtn);
+      headerDiv.appendChild(order);
+
+      const input = createFilterInput(index);
+      wrapper.appendChild(headerDiv);
+      wrapper.appendChild(input);
+      return wrapper;
+    }
+
+    function createFilterInput(index) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'filter-input';
+      input.dataset.idx = index;
+      input.value = filterValues[index] || '';
+      input.placeholder = '검색';
+      input.addEventListener('blur', () => {
+        filterValues[index] = input.value;
+        applyFilter();
+        applySort();
+        renderContents();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          filterValues[index] = input.value;
+          applyFilter();
+          applySort();
+          renderContents();
+        }
+      });
+      return input;
+    }
+
+    /* ✅ 변경된 부분: renderContents() 내부에 5번째 열 처리 추가 */
+    function renderContents() {
+      const table = document.getElementById('sheet-table');
+      const oldTbody = table.querySelector('tbody');
+      if (oldTbody) oldTbody.remove();
+
+      const tbody = document.createElement('tbody');
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isMobile = window.innerWidth < 768;
+
+      if (!isMobile) {
+        tableData.forEach(row => {
+          const tr = document.createElement('tr');
+          const difficulty = parseFloat(row[difficultyColumnIndex]);
+          if (!isNaN(difficulty)) {
+            tr.style.backgroundColor = hslColorFromDifficulty(difficulty, isDark);
+          }
+          row.forEach((cell, idx) => {
+            const td = document.createElement('td');
+
+            // ✅ 5번째 열(인덱스 4)인 경우 숫자면 "분" 추가
+            if (idx === 4) {
+              const num = parseFloat(cell);
+              td.textContent = !isNaN(num) ? `${num}분` : cell;
+            } else if (idx === headers.length - 1) {
+              td.textContent = replaceSpecialTermsForLastColumn(cell);
+              td.classList.add("last-col");
+            } else {
+              td.textContent = cell;
+            }
+
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      } else {
+        const n = headers.length;
+        const gridCols = Math.ceil(n / 2);
+        tableData.forEach(row => {
+          const trTop = document.createElement('tr');
+          const trBottom = document.createElement('tr');
+          const difficulty = parseFloat(row[difficultyColumnIndex]);
+          if (!isNaN(difficulty)) {
+            trTop.style.backgroundColor = hslColorFromDifficulty(difficulty, isDark);
+            trBottom.style.backgroundColor = hslColorFromDifficulty(difficulty, isDark);
+          }
+          for (let j = 0; j < gridCols; j++) {
+            const topIdx = j * 2;
+            const bottomIdx = j * 2 + 1;
+
+            function formatCell(idx) {
+              if (idx === 4) {
+                const num = parseFloat(row[idx]);
+                return !isNaN(num) ? `${num}분` : row[idx];
+              } else if (idx === n - 1) {
+                return replaceSpecialTermsForLastColumn(row[idx]);
+              } else {
+                return row[idx];
+              }
+            }
+
+            if (topIdx < n && bottomIdx < n) {
+              const tdTop = document.createElement('td');
+              const tdBottom = document.createElement('td');
+              tdTop.textContent = formatCell(topIdx);
+              tdBottom.textContent = formatCell(bottomIdx);
+              if (topIdx === n - 1) tdTop.classList.add("last-col");
+              if (bottomIdx === n - 1) tdBottom.classList.add("last-col");
+              trTop.appendChild(tdTop);
+              trBottom.appendChild(tdBottom);
+            } else if (topIdx < n) {
+              const td = document.createElement('td');
+              td.rowSpan = 2;
+              td.textContent = formatCell(topIdx);
+              if (topIdx === n - 1) td.classList.add("last-col");
+              trTop.appendChild(td);
+            }
+          }
+          tbody.appendChild(trTop);
+          tbody.appendChild(trBottom);
+        });
+      }
+
+      table.appendChild(tbody);
+    }
+
+    function updateSort(index) {
+      const existing = sortState.find(s => s.index === index);
+      if (!existing) {
+        sortState.unshift({ index, direction: 'asc' });
+      } else {
+        existing.direction = existing.direction === 'asc' ? 'desc' : 'asc';
+        sortState = [existing, ...sortState.filter(s => s.index !== index)];
+      }
+    }
+
+    function getSortSymbol(index) {
+      const state = sortState.find(s => s.index === index);
+      if (!state) return '↕';
+      return state.direction === 'asc' ? '▲' : '▼';
+    }
+
+    function applySort() {
+      tableData.sort((a, b) => {
+        for (const { index, direction } of sortState) {
+          const valA = a[index];
+          const valB = b[index];
+          if (valA === valB) continue;
+          const aNum = parseFloat(valA), bNum = parseFloat(valB);
+          const isNumeric = !isNaN(aNum) && !isNaN(bNum);
+          if (isNumeric) {
+            return direction === 'asc' ? aNum - bNum : bNum - aNum;
+          } else {
+            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          }
+        }
+        return 0;
+      });
+    }
+
+    function applyFilter() {
+      tableData = originalData.filter(row =>
+        row.every((cell, i) => {
+          let cellValue = cell;
+          if (i === row.length - 1) {
+            cellValue = replaceSpecialTermsForLastColumn(cellValue) || '';
+          }
+          const filterVal = filterValues[i] || '';
+          return cellValue.toLowerCase().includes(filterVal.toLowerCase());
+        })
+      );
+    }
+
+    function hslColorFromDifficulty(value, isDark) {
+      const min = 1, max = 5;
+      const t = (value - min) / (max - min);
+      const hStart = 190, hEnd = 0;
+      const l = isDark ? 25 : 60;
+      const h = hStart + (hEnd - hStart) * t;
+      return `hsl(${h.toFixed(2)}, 100%, ${l}%)`;
+    }
+
+    window.addEventListener('resize', () => {
+      const currentWidth = window.innerWidth;
+      const isMobile = currentWidth < 768;
+
+      if (isMobile !== lastIsMobile) {
+        lastIsMobile = isMobile;
+        renderHeader();
+      }
+      if (currentWidth !== lastWidth) {
+        lastWidth = currentWidth;
+        renderContents();
+      }
+    });
+  </script>
+</body>
+</html>
