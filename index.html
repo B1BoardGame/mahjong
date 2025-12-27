@@ -159,6 +159,9 @@ const INFO_TEXT = `
 획득 점수 = ( {자신이 가진 점수} - 25000 ) / 1000
 등위 점수 = 1등:25점, 2등:10점, 3등:-10점, 4등:-25점 (획득 점수가 동일한 경우, 북>서>남>동 순으로 상위)
 대국 계수 = 동장전: ×1, 남장전: ×2.1
+
+⚠️ 검증을 통해 획득 점수 총합이 10000이 되지 않는 경기는 무효.
+⚠️ 동점일 경우, 판수가 많은 사람이 상위
 `;
 
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
@@ -192,19 +195,37 @@ function toNumber(v) {
     return Number(String(v).replace(/,/g, "").trim()) || 0;
 }
 
-/* ================= 상단 작은 표 ================= */
+/* ================= 작은 표 ================= */
 fetchSheet(SMALL_GID).then(json => {
     const body = document.getElementById("small-body");
-    body.innerHTML = "";
 
-    json.table.rows.forEach(row => {
+    json.table.rows.forEach((row, idx) => {
         const tr = document.createElement("tr");
 
-        row.c.forEach(c => {
-            const td = document.createElement("td");
-            td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
-            tr.appendChild(td);
-        });
+        if (idx === 0) {
+            const td1 = document.createElement("td");
+            td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
+            tr.appendChild(td1);
+
+            const tdMerge = document.createElement("td");
+            tdMerge.colSpan = 3;
+
+            const merged = [
+                row.c[1]?.v,
+                row.c[2]?.v,
+                row.c[3]?.v
+            ].filter(v => v !== null && v !== undefined)
+             .join("\n");
+
+            tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
+            tr.appendChild(tdMerge);
+        } else {
+            row.c.forEach(c => {
+                const td = document.createElement("td");
+                td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
+                tr.appendChild(td);
+            });
+        }
 
         body.appendChild(tr);
     });
