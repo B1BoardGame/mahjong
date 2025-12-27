@@ -149,7 +149,7 @@ tbody tr:nth-child(even) {
 <script>
 /* ================= 설정 ================= */
 const MIN_ROUND_FILTER_VALUE = 1;
-const REFRESH_SECONDS = 30; // ✅ 30초로 변경
+const REFRESH_SECONDS = 600; // ✅ 다시 600초
 
 const INFO_TEXT = `
 ℹ️ 계산 공식
@@ -192,6 +192,24 @@ function toNumber(v) {
     return Number(String(v).replace(/,/g, "").trim()) || 0;
 }
 
+/* ================= 상단 작은 표 ================= */
+fetchSheet(SMALL_GID).then(json => {
+    const body = document.getElementById("small-body");
+    body.innerHTML = "";
+
+    json.table.rows.forEach(row => {
+        const tr = document.createElement("tr");
+
+        row.c.forEach(c => {
+            const td = document.createElement("td");
+            td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
+            tr.appendChild(td);
+        });
+
+        body.appendChild(tr);
+    });
+});
+
 /* ================= 메인 랭킹 ================= */
 fetchSheet(MAIN_GID).then(json => {
     const rows = json.table.rows;
@@ -217,14 +235,13 @@ fetchSheet(MAIN_GID).then(json => {
             const v = r.c.map(c => c?.v ?? "");
             return {
                 raw: v,
-                // HTML 기준
-                third: toNumber(v[1]),  // 3번째 열
-                fourth: toNumber(v[2])  // 4번째 열
+                third: toNumber(v[1]),   // HTML 3열
+                fourth: toNumber(v[2])   // HTML 4열
             };
         })
         .filter(r => r.third >= MIN_ROUND_FILTER_VALUE);
 
-    // ✅ 정렬
+    // 정렬: 4열 → 3열 (내림차순)
     data.sort((a, b) => {
         if (b.fourth !== a.fourth) return b.fourth - a.fourth;
         return b.third - a.third;
@@ -234,7 +251,6 @@ fetchSheet(MAIN_GID).then(json => {
     let rank = 0;
 
     data.forEach((row, index) => {
-        // ✅ 공동 순위 조건: 4열 + 3열 모두 같을 때
         const key = `${row.fourth}|${row.third}`;
 
         if (key !== prevKey) {
