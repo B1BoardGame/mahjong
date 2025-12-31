@@ -149,7 +149,7 @@ tbody tr:nth-child(even) {
 <script>
 /* ================= 설정 ================= */
 const REFRESH_SECONDS = 600; // ✅ 다시 600초
-
+const MINIMUM_ROUNDS = 3;
 const INFO_TEXT = `
 ℹ️ 계산 공식
 매월 기본점수 1000점으로 리셋
@@ -250,14 +250,16 @@ fetchSheet(MAIN_GID).then(json => {
         header.appendChild(th);
     }
 
-    const data = rows.map(r => {
-        const v = r.c.map(c => c?.v ?? "");
-        return {
-            raw: v,
-            third: toNumber(v[1]),
-            fourth: toNumber(v[2])
-        };
-    });
+    const data = rows
+        .map(r => {
+            const v = r.c.map(c => c?.v ?? "");
+            return {
+                raw: v,
+                third: toNumber(v[1]),
+                fourth: toNumber(v[2])
+            };
+        })
+        .filter(row => row.third >= MINIMUM_ROUNDS);
 
     // 정렬: 4열 → 3열 (내림차순)
     data.sort((a, b) => {
