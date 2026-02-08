@@ -206,6 +206,14 @@ function toNumber(v) {
     return Number(String(v).replace(/,/g, "").trim()) || 0;
 }
 
+/* ================= 닉네임 치환 ================= */
+function decorateNicknameByRank(nickname, rank) {
+    if (rank === 1) return `🥇)${nickname}`;
+    if (rank === 2) return `🥈)${nickname}`;
+    if (rank === 3) return `🥉)${nickname}`;
+    return nickname;
+}
+
 /* ================= 작은 표 ================= */
 fetchSheet(SMALL_GID).then(json => {
     const body = document.getElementById("small-body");
@@ -298,7 +306,13 @@ fetchSheet(MAIN_GID).then(json => {
 
         for (let i = 0; i < 3; i++) {
             const td = document.createElement("td");
-            td.textContent = row.raw[i];
+
+            if (i === 0) {
+                td.textContent = decorateNicknameByRank(row.raw[i], rank);
+            } else {
+                td.textContent = row.raw[i];
+            }
+
             tr.appendChild(td);
         }
 
