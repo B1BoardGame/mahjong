@@ -101,6 +101,25 @@ tbody tr:nth-child(even) {
     margin: 0 4px;
 }
 
+.yakuman-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    text-decoration: none;
+    max-width: 95%;
+    box-sizing: border-box;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.yakuman-btn:hover {
+    background-color: rgba(0,0,0,0.08);
+}
+
 @media (prefers-color-scheme: dark) {
     body {
         background: #121212;
@@ -141,6 +160,10 @@ tbody tr:nth-child(even) {
             <strong>마작 점수 입력 QR</strong><br><br>
             <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
                 <img src="images/input.png" alt="마작 점수 입력 QR">
+            </a>
+            <br><br>
+            <a href="https://forms.gle/7CS9p41Kv7D1E8Es8" target="_blank" class="yakuman-btn">
+                역만을 하셨나요?
             </a>
         </div>
     </div>
