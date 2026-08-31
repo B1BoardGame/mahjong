@@ -204,7 +204,7 @@ tbody tr:nth-child(even) {
             <table class="control-table">
                 <tbody>
                     <tr>
-                        <td></td>
+                        <td id="recent-record"></td>
                         <td colspan="3"></td>
                     </tr>
                     <tr>
@@ -273,6 +273,7 @@ const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 const RECORD_GID = "1964322945";
+const VERIFICATION_GID = "1763894614";
 
 /* ================= 공통 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
@@ -346,7 +347,7 @@ recordNumberInput.addEventListener("blur", () => {
 });
 
 fetchSheet(RECORD_GID).then(json => {
-    const value = json.table.rows[0]?.c[0]?.v;
+    const value = json.table.rows[0]?.c[1]?.v;
     const max = Number(value);
 
     maxRecordNumber = Number.isInteger(max) && max >= 1 ? max : 1;
@@ -357,6 +358,32 @@ fetchSheet(RECORD_GID).then(json => {
     recordNumber = 1;
     updateRecordControls();
 });
+
+/* ================= 최근 기록 ================= */
+let verificationData = [];
+
+function renderRecentRecord() {
+    const cell = document.getElementById("recent-record");
+    const index = recordNumber - 1;
+    const verificationValue = verificationData[index] ?? "";
+
+    cell.textContent = `최근 기록\\n${verificationValue}`;
+    cell.style.whiteSpace = "pre-line";
+}
+
+fetchSheet(VERIFICATION_GID).then(json => {
+    verificationData = json.table.rows.map(row => row.c[10]?.v ?? "");
+    renderRecentRecord();
+}).catch(() => {
+    verificationData = [];
+    renderRecentRecord();
+});
+
+const originalSetRecordNumber = setRecordNumber;
+setRecordNumber = function(value) {
+    originalSetRecordNumber(value);
+    renderRecentRecord();
+};
 
 /* ================= 닉네임 치환 ================= */
 function decorateNicknameByRank(nickname, rank) {
