@@ -214,7 +214,7 @@ tbody tr:nth-child(even) {
                         <td>북(北)</td>
                     </tr>
                     <tr>
-                        <td></td><td></td><td></td><td></td>
+                        <td id="east-record"></td><td id="south-record"></td><td></td><td></td>
                     </tr>
                     <tr>
                         <td></td><td></td><td></td><td></td>
@@ -277,6 +277,7 @@ const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 const RECORD_GID = "1964322945";
 const RAW_GID = "1763894614";
+const LIST_GID = "1729121045";
 const HEADER_MARGIN = 3;
 
 /* ================= 공통 ================= */
@@ -372,6 +373,7 @@ fetchSheet(RECORD_GID).then(json => {
 
 /* ================= 최근 기록 ================= */
 let rawData = [];
+let listData = [];
 
 function formatRawDate(value) {
     const match = String(value).match(
@@ -398,33 +400,66 @@ function formatRawDate(value) {
 }
 
 function renderTable() {
-    const cell = document.getElementById("recent-record");
+    const recentRecordCell = document.getElementById("recent-record");
     const rawDateCell = document.getElementById("raw-date");
+    const eastRecordCell = document.getElementById("east-record");
+    const southRecordCell = document.getElementById("south-record");
 
     // 행번호 = 텍스트필드 값 + HEADER_MARGIN
-    // 예: 704 + 3 = 707번째 행 → 배열 인덱스 706
+    // 배열 인덱스 = 행번호 - 1
     const sheetRowNumber = recordNumber + HEADER_MARGIN;
     const rowIndex = sheetRowNumber - 1;
 
-    // RAW_GID K열의 값을 그대로 출력
+    // RAW_GID K열
     const rawValue = rawData[rowIndex]?.[10] ?? "";
 
-    // RAW_GID A열의 값을 날짜 형식으로 변환하여 출력
+    // RAW_GID A열
     const rawDateValue = rawData[rowIndex]?.[0] ?? "";
 
-    cell.innerHTML = `최근 기록<br>${rawValue}`;
+    // RAW_GID C열 → 동(東)
+    const eastValue = rawData[rowIndex]?.[2] ?? "";
+
+    // RAW_GID E열 → 남(南)
+    const southValue = rawData[rowIndex]?.[4] ?? "";
+
+    // LIST_GID D열에서 RAW_GID C열/E열과 동일한 값을 찾고,
+    // 같은 행의 C열 값을 가져옴 (MATCH와 동일한 정확 일치)
+    const eastMatchIndex = listData.findIndex(row => String(row?.[3] ?? "") === String(eastValue));
+    const eastMatchValue = eastMatchIndex >= 0 ? (listData[eastMatchIndex]?.[2] ?? "") : "";
+
+    const southMatchIndex = listData.findIndex(row => String(row?.[3] ?? "") === String(southValue));
+    const southMatchValue = southMatchIndex >= 0 ? (listData[southMatchIndex]?.[2] ?? "") : "";
+
+    recentRecordCell.innerHTML = `최근 기록<br>${rawValue}`;
     rawDateCell.textContent = formatRawDate(rawDateValue);
+    eastRecordCell.innerHTML = `${eastValue}<br>(${eastMatchValue})`;
+    southRecordCell.innerHTML = `${southValue}<br>(${southMatchValue})`;
 }
 
-fetchSheet(RAW_GID).then(json => {
-    rawData = json.table.rows.map(row =>
+Promise.all([
+    fetchSheet(RAW_GID),
+    fetchSheet(LIST_GID)
+]).then(([rawJson, listJson]) => {
+    rawData = rawJson.table.rows.map(row =>
         row.c.map(c => c?.v ?? "")
     );
+
+    listData = listJson.table.rows.map(row =>
+        row.c.map(c => c?.v ?? "")
+    );
+
     renderTable();
 }).catch(() => {
     rawData = [];
+    listData = [];
     renderTable();
 });
+
+const originalSetRecordNumber = setRecordNumber;
+setRecordNumber = function(value) {
+    originalSetRecordNumber(value);
+    renderTable();
+};
 
 /* ================= 닉네임 치환 ================= */
 function decorateNicknameByRank(nickname, rank) {
