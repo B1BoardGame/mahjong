@@ -214,10 +214,10 @@ tbody tr:nth-child(even) {
                         <td>북(北)</td>
                     </tr>
                     <tr>
-                        <td id="east-record"></td><td id="south-record"></td><td></td><td></td>
+                        <td id="east-record"></td><td id="south-record"></td><td id="west-record"></td><td id="north-record"></td>
                     </tr>
                     <tr>
-                        <td></td><td></td><td></td><td></td>
+                        <td id="east-score"></td><td id="south-score"></td><td id="west-score"></td><td id="north-score"></td>
                     </tr>
                 </tbody>
             </table>
@@ -404,6 +404,12 @@ function renderTable() {
     const rawDateCell = document.getElementById("raw-date");
     const eastRecordCell = document.getElementById("east-record");
     const southRecordCell = document.getElementById("south-record");
+    const westRecordCell = document.getElementById("west-record");
+    const northRecordCell = document.getElementById("north-record");
+    const eastScoreCell = document.getElementById("east-score");
+    const southScoreCell = document.getElementById("south-score");
+    const westScoreCell = document.getElementById("west-score");
+    const northScoreCell = document.getElementById("north-score");
 
     // 행번호 = 텍스트필드 값 + HEADER_MARGIN
     // 배열 인덱스 = 행번호 - 1
@@ -416,24 +422,55 @@ function renderTable() {
     // RAW_GID A열
     const rawDateValue = rawData[rowIndex]?.[0] ?? "";
 
-    // RAW_GID C열 → 동(東)
+    // RAW_GID C/E/G/I열 → 동/남/서/북
     const eastValue = rawData[rowIndex]?.[2] ?? "";
-
-    // RAW_GID E열 → 남(南)
     const southValue = rawData[rowIndex]?.[4] ?? "";
+    const westValue = rawData[rowIndex]?.[6] ?? "";
+    const northValue = rawData[rowIndex]?.[8] ?? "";
 
-    // LIST_GID D열에서 RAW_GID C열/E열과 동일한 값을 찾고,
-    // 같은 행의 C열 값을 가져옴 (MATCH와 동일한 정확 일치)
-    const eastMatchIndex = listData.findIndex(row => String(row?.[3] ?? "") === String(eastValue));
-    const eastMatchValue = eastMatchIndex >= 0 ? (listData[eastMatchIndex]?.[2] ?? "") : "";
+    // LIST_GID D열에서 동일한 값을 찾고 같은 행의 C열 값을 가져옴
+    const findListValue = value => {
+        const matchIndex = listData.findIndex(row =>
+            String(row?.[3] ?? "") === String(value)
+        );
+        return matchIndex >= 0 ? (listData[matchIndex]?.[2] ?? "") : "";
+    };
 
-    const southMatchIndex = listData.findIndex(row => String(row?.[3] ?? "") === String(southValue));
-    const southMatchValue = southMatchIndex >= 0 ? (listData[southMatchIndex]?.[2] ?? "") : "";
+    const eastMatchValue = findListValue(eastValue);
+    const southMatchValue = findListValue(southValue);
+    const westMatchValue = findListValue(westValue);
+    const northMatchValue = findListValue(northValue);
+
+    // RAW_GID D/F/H/J열 → 동/남/서/북 점수
+    const eastScore = rawData[rowIndex]?.[3] ?? "";
+    const southScore = rawData[rowIndex]?.[5] ?? "";
+    const westScore = rawData[rowIndex]?.[7] ?? "";
+    const northScore = rawData[rowIndex]?.[9] ?? "";
+
+    // RAW_GID P/Q/R/S열 → 동/남/서/북 계산점수
+    const eastCalcScore = rawData[rowIndex]?.[15] ?? "";
+    const southCalcScore = rawData[rowIndex]?.[16] ?? "";
+    const westCalcScore = rawData[rowIndex]?.[17] ?? "";
+    const northCalcScore = rawData[rowIndex]?.[18] ?? "";
+
+    const formatScore = (score, calcScore) => {
+        const calcNumber = Number(String(calcScore).replace(/,/g, "").trim());
+        const sign = calcNumber < 0 ? "" : "+";
+        return `${score}<br>(${sign}${calcScore})`;
+    };
 
     recentRecordCell.innerHTML = `최근 기록<br>${rawValue}`;
     rawDateCell.textContent = formatRawDate(rawDateValue);
+
     eastRecordCell.innerHTML = `${eastValue}<br>(${eastMatchValue})`;
     southRecordCell.innerHTML = `${southValue}<br>(${southMatchValue})`;
+    westRecordCell.innerHTML = `${westValue}<br>(${westMatchValue})`;
+    northRecordCell.innerHTML = `${northValue}<br>(${northMatchValue})`;
+
+    eastScoreCell.innerHTML = formatScore(eastScore, eastCalcScore);
+    southScoreCell.innerHTML = formatScore(southScore, southCalcScore);
+    westScoreCell.innerHTML = formatScore(westScore, westCalcScore);
+    northScoreCell.innerHTML = formatScore(northScore, northCalcScore);
 }
 
 Promise.all([
