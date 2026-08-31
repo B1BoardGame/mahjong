@@ -205,10 +205,13 @@ tbody tr:nth-child(even) {
                 <tbody>
                     <tr>
                         <td id="recent-record"></td>
-                        <td colspan="3"></td>
+                        <td id="raw-date" colspan="3"></td>
                     </tr>
                     <tr>
-                        <td></td><td></td><td></td><td></td>
+                        <td>동(東)</td>
+                        <td>남(南)</td>
+                        <td>서(西)</td>
+                        <td>북(北)</td>
                     </tr>
                     <tr>
                         <td></td><td></td><td></td><td></td>
@@ -274,7 +277,7 @@ const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 const RECORD_GID = "1964322945";
 const RAW_GID = "1763894614";
-const HEADER_MARGIN = 4;
+const HEADER_MARGIN = 3;
 
 /* ================= 공통 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
@@ -365,12 +368,19 @@ let rawData = [];
 
 function renderRecentRecord() {
     const cell = document.getElementById("recent-record");
+    const rawDateCell = document.getElementById("raw-date");
 
-    // 텍스트필드 값 + HEADER_MARGIN 행의 K열 값을 그대로 출력
+    // 행번호 = 텍스트필드 값 + HEADER_MARGIN
     const rowIndex = recordNumber - 1 + HEADER_MARGIN;
+
+    // RAW_GID K열의 값을 그대로 출력
     const rawValue = rawData[rowIndex]?.[10] ?? "";
 
+    // RAW_GID A열의 값을 그대로 출력
+    const rawDateValue = rawData[rowIndex]?.[0] ?? "";
+
     cell.innerHTML = `최근 기록<br>${rawValue}`;
+    rawDateCell.textContent = rawDateValue;
 }
 
 fetchSheet(RAW_GID).then(json => {
