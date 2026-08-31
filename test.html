@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>마작 순위</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="B1 마작 순위">
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+<link rel="icon" href="images/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="images/icon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="images/icon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="images/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="images/icon-180x180.png">
+<link rel="manifest" href="site.webmanifest">
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 10px;
+    background: #fff;
+    color: #000;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+#refresh-timer {
+    position: fixed;
+    top: 8px;
+    right: 12px;
+    font-size: 12px;
+    opacity: 0.8;
+    z-index: 1000;
+}
+
+.sticky-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    background: inherit;
+    padding-bottom: 6px;
+}
+
+.top-section {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.left-box {
+    flex: 65;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    background: inherit;
+}
+
+.right-box {
+    flex: 35;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    background: inherit;
+}
+
+.right-box img {
+    max-width: 100%;
+    cursor: pointer;
+}
+
+.info-area {
+    margin: 12px 4px 16px;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-line;
+    opacity: 0.85;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: center;
+}
+
+tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.main-table-wrapper {
+    margin: 0 4px;
+}
+
+.yakuman-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    text-decoration: none;
+    max-width: 95%;
+    box-sizing: border-box;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.yakuman-btn:hover {
+    background-color: rgba(0,0,0,0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #121212;
+        color: #e0e0e0;
+    }
+
+    td, th {
+        border-color: #444;
+    }
+
+    tbody tr:nth-child(even) {
+        background: #1e1e1e;
+    }
+
+    .left-box,
+    .right-box {
+        border-color: #444;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div id="refresh-timer"></div>
+
+<h1>B1 마작 순위</h1>
+
+<div class="sticky-wrapper">
+    <div class="top-section">
+        <div class="left-box">
+            <table>
+                <tbody id="small-body"></tbody>
+            </table>
+        </div>
+
+        <div class="right-box">
+            <strong>마작 점수 입력 QR</strong><br><br>
+            <a href="https://forms.gle/gm5kEGSPrYBSpfey9" target="_blank">
+                <img src="images/input.png" alt="마작 점수 입력 QR">
+            </a>
+            <br><br>
+            <a href="https://forms.gle/7CS9p41Kv7D1E8Es8" target="_blank" class="yakuman-btn">
+                역만을 하셨나요?
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="info-text" class="info-area"></div>
+
+<div class="main-table-wrapper">
+    <table>
+        <thead>
+            <tr id="main-header"></tr>
+        </thead>
+        <tbody id="main-body"></tbody>
+    </table>
+</div>
+
+<script>
+/* ================= 설정 ================= */
+const REFRESH_SECONDS = 600; // ✅ 다시 600초
+const MINIMUM_ROUNDS = 1;
+const INFO_TEXT = `
+ℹ️ 계산 공식
+기본점수 1000점. (전달 1일 ~ 이번달 말일) 까지의 점수 합산.
+획득 점수는 익월 말일까지 유효
+
+포인트 = ( {획득 점수} + {등위 점수} ) × {대국 계수} (소수점 아래 정수로 반올림)
+획득 점수 = ( {자신이 가진 점수} - 25000 ) / 1000
+등위 점수 = 1등:25점, 2등:10점, 3등:-10점, 4등:-25점 (획득 점수가 동일한 경우, 북>서>남>동 순으로 상위)
+대국 계수 = 동장전: ×1, 남장전: ×2.1
+
+⚠️ 검증을 통해 획득 점수 총합이 100,000(십만)이 되지 않는 경기는 무효
+⚠️ 획득 점수 총합은 상단 최근 기록에 [✅] 노출되어야 정상. [❌] 노출시 무효
+⚠️ 동점일 경우, 판수가 많은 사람이 상위
+`;
+
+const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
+const MAIN_GID = "1729121045";
+const SMALL_GID = "801258754";
+
+/* ================= 공통 ================= */
+document.getElementById("info-text").textContent = INFO_TEXT;
+
+let remain = REFRESH_SECONDS;
+setInterval(() => {
+    document.getElementById("refresh-timer").textContent =
+        `${remain--} 초 후 새로고침`;
+    if (remain < 0) location.reload();
+}, 1000);
+
+function parseGviz(text) {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    return JSON.parse(text.substring(start, end + 1));
+}
+
+function fetchSheet(gid) {
+    return fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}`)
+        .then(r => r.text())
+        .then(parseGviz);
+}
+
+function toNumber(v) {
+    if (v === null || v === undefined) return 0;
+    return Number(String(v).replace(/,/g, "").trim()) || 0;
+}
+
+/* ================= 닉네임 치환 ================= */
+function decorateNicknameByRank(nickname, rank) {
+    if (rank === 1) return `🥇  ${nickname}`;
+    if (rank === 2) return `🥈  ${nickname}`;
+    if (rank === 3) return `🥉  ${nickname}`;
+    return nickname;
+}
+
+/* ================= 작은 표 ================= */
+fetchSheet(SMALL_GID).then(json => {
+    const body = document.getElementById("small-body");
+
+    json.table.rows.forEach((row, idx) => {
+        const tr = document.createElement("tr");
+
+        if (idx === 0) {
+            const td1 = document.createElement("td");
+            td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
+            tr.appendChild(td1);
+
+            const tdMerge = document.createElement("td");
+            tdMerge.colSpan = 3;
+
+            const merged = [
+                row.c[1]?.v,
+                row.c[2]?.v,
+                row.c[3]?.v
+            ].filter(v => v !== null && v !== undefined)
+             .join("\n");
+
+            tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
+            tr.appendChild(tdMerge);
+        } else {
+            row.c.forEach(c => {
+                const td = document.createElement("td");
+                td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
+                tr.appendChild(td);
+            });
+        }
+
+        body.appendChild(tr);
+    });
+});
+
+/* ================= 메인 랭킹 ================= */
+fetchSheet(MAIN_GID).then(json => {
+    const rows = json.table.rows;
+    const cols = json.table.cols;
+
+    const header = document.getElementById("main-header");
+    const body = document.getElementById("main-body");
+
+    header.innerHTML = "";
+
+    const thRank = document.createElement("th");
+    thRank.textContent = "순위";
+    header.appendChild(thRank);
+
+    for (let i = 0; i < 3; i++) {
+        const th = document.createElement("th");
+        th.textContent = cols[i].label || "";
+        header.appendChild(th);
+    }
+
+    const data = rows
+        .map(r => {
+            const v = r.c.map(c => c?.v ?? "");
+            return {
+                raw: v,
+                third: toNumber(v[1]),
+                fourth: toNumber(v[2])
+            };
+        })
+        .filter(row => row.third >= MINIMUM_ROUNDS);
+
+    // 정렬: 4열 → 3열 (내림차순)
+    data.sort((a, b) => {
+        if (b.fourth !== a.fourth) return b.fourth - a.fourth;
+        return b.third - a.third;
+    });
+
+    let prevKey = null;
+    let rank = 0;
+
+    data.forEach((row, index) => {
+        const key = `${row.fourth}|${row.third}`;
+
+        if (key !== prevKey) {
+            rank = index + 1;
+        }
+        prevKey = key;
+
+        const tr = document.createElement("tr");
+
+        const tdRank = document.createElement("td");
+        tdRank.textContent = rank;
+        tr.appendChild(tdRank);
+
+        for (let i = 0; i < 3; i++) {
+            const td = document.createElement("td");
+
+            if (i === 0) {
+                td.textContent = decorateNicknameByRank(row.raw[i], rank);
+            } else {
+                td.textContent = row.raw[i];
+            }
+
+            tr.appendChild(td);
+        }
+
+        body.appendChild(tr);
+    });
+});
+</script>
+
+</body>
+</html>
