@@ -38,6 +38,56 @@ h1 {
     z-index: 1000;
 }
 
+.control-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.control-table td {
+    height: 42px;
+}
+
+.record-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.record-controls button,
+.record-controls input {
+    height: 32px;
+    box-sizing: border-box;
+}
+
+.record-controls button {
+    width: 36px;
+    padding: 0;
+    font-size: 18px;
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.record-controls button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.record-controls input {
+    width: 72px;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 14px;
+    color: inherit;
+    background: transparent;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
 .sticky-wrapper {
     position: sticky;
     top: 0;
@@ -151,9 +201,29 @@ tbody tr:nth-child(even) {
 <div class="sticky-wrapper">
     <div class="top-section">
         <div class="left-box">
-            <table>
-                <tbody id="small-body"></tbody>
+            <table class="control-table">
+                <tbody>
+                    <tr>
+                        <td></td>
+                        <td colspan="3"></td>
+                    </tr>
+                    <tr>
+                        <td></td><td></td><td></td><td></td>
+                    </tr>
+                    <tr>
+                        <td></td><td></td><td></td><td></td>
+                    </tr>
+                    <tr>
+                        <td></td><td></td><td></td><td></td>
+                    </tr>
+                </tbody>
             </table>
+
+            <div class="record-controls">
+                <button id="prev-record" type="button" aria-label="이전 기록">←</button>
+                <input id="record-number" type="number" min="1" step="1" inputmode="numeric" aria-label="기록 번호">
+                <button id="next-record" type="button" aria-label="다음 기록">→</button>
+            </div>
         </div>
 
         <div class="right-box">
@@ -202,6 +272,7 @@ const INFO_TEXT = `
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
+const RECORD_GID = "1964322945";
 
 /* ================= 공통 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
@@ -230,6 +301,63 @@ function toNumber(v) {
     return Number(String(v).replace(/,/g, "").trim()) || 0;
 }
 
+/* ================= 기록 번호 컨트롤 ================= */
+const prevRecordButton = document.getElementById("prev-record");
+const recordNumberInput = document.getElementById("record-number");
+const nextRecordButton = document.getElementById("next-record");
+
+let recordNumber = 1;
+let maxRecordNumber = 1;
+
+function updateRecordControls() {
+    recordNumberInput.value = recordNumber;
+    prevRecordButton.disabled = recordNumber <= 1;
+    nextRecordButton.disabled = recordNumber >= maxRecordNumber;
+}
+
+function setRecordNumber(value) {
+    let n = Number(value);
+
+    if (!Number.isInteger(n) || n < 1) n = 1;
+    if (n > maxRecordNumber) n = maxRecordNumber;
+
+    recordNumber = n;
+    updateRecordControls();
+}
+
+prevRecordButton.addEventListener("click", () => {
+    if (recordNumber > 1) setRecordNumber(recordNumber - 1);
+});
+
+nextRecordButton.addEventListener("click", () => {
+    if (recordNumber < maxRecordNumber) setRecordNumber(recordNumber + 1);
+});
+
+recordNumberInput.addEventListener("input", () => {
+    recordNumberInput.value = recordNumberInput.value.replace(/[^0-9]/g, "");
+
+    if (recordNumberInput.value !== "") {
+        setRecordNumber(recordNumberInput.value);
+    }
+});
+
+recordNumberInput.addEventListener("blur", () => {
+    setRecordNumber(recordNumberInput.value);
+});
+
+fetchSheet(RECORD_GID).then(json => {
+    const value = json.table.rows[0]?.c[0]?.v;
+    const max = Number(value);
+
+    maxRecordNumber = Number.isInteger(max) && max >= 1 ? max : 1;
+    recordNumber = maxRecordNumber;
+    updateRecordControls();
+}).catch(() => {
+    maxRecordNumber = 1;
+    recordNumber = 1;
+    updateRecordControls();
+});
+
 /* ================= 닉네임 치환 ================= */
 function decorateNicknameByRank(nickname, rank) {
     if (rank === 1) return `🥇  ${nickname}`;
@@ -238,41 +366,7 @@ function decorateNicknameByRank(nickname, rank) {
     return nickname;
 }
 
-/* ================= 작은 표 ================= */
-fetchSheet(SMALL_GID).then(json => {
-    const body = document.getElementById("small-body");
 
-    json.table.rows.forEach((row, idx) => {
-        const tr = document.createElement("tr");
-
-        if (idx === 0) {
-            const td1 = document.createElement("td");
-            td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
-            tr.appendChild(td1);
-
-            const tdMerge = document.createElement("td");
-            tdMerge.colSpan = 3;
-
-            const merged = [
-                row.c[1]?.v,
-                row.c[2]?.v,
-                row.c[3]?.v
-            ].filter(v => v !== null && v !== undefined)
-             .join("\n");
-
-            tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
-            tr.appendChild(tdMerge);
-        } else {
-            row.c.forEach(c => {
-                const td = document.createElement("td");
-                td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
-                tr.appendChild(td);
-            });
-        }
-
-        body.appendChild(tr);
-    });
-});
 
 /* ================= 메인 랭킹 ================= */
 fetchSheet(MAIN_GID).then(json => {
