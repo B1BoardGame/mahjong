@@ -273,7 +273,8 @@ const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 const RECORD_GID = "1964322945";
-const VERIFICATION_GID = "1763894614";
+const RAW_GID = "1763894614";
+const HEADER_MARGIN = 4;
 
 /* ================= 공통 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
@@ -360,22 +361,25 @@ fetchSheet(RECORD_GID).then(json => {
 });
 
 /* ================= 최근 기록 ================= */
-let verificationData = [];
+let rawData = [];
 
 function renderRecentRecord() {
     const cell = document.getElementById("recent-record");
-    const index = recordNumber - 1;
-    const verificationValue = verificationData[index] ?? "";
 
-    cell.textContent = `최근 기록\\n${verificationValue}`;
-    cell.style.whiteSpace = "pre-line";
+    // 텍스트필드 값 + HEADER_MARGIN 행의 K열 값을 그대로 출력
+    const rowIndex = recordNumber - 1 + HEADER_MARGIN;
+    const rawValue = rawData[rowIndex]?.[10] ?? "";
+
+    cell.innerHTML = `최근 기록<br>${rawValue}`;
 }
 
-fetchSheet(VERIFICATION_GID).then(json => {
-    verificationData = json.table.rows.map(row => row.c[10]?.v ?? "");
+fetchSheet(RAW_GID).then(json => {
+    rawData = json.table.rows.map(row =>
+        row.c.map(c => c?.v ?? "")
+    );
     renderRecentRecord();
 }).catch(() => {
-    verificationData = [];
+    rawData = [];
     renderRecentRecord();
 });
 
