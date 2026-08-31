@@ -314,6 +314,9 @@ const nextRecordButton = document.getElementById("next-record");
 let recordNumber = 1;
 let maxRecordNumber = 1;
 
+// URL의 # 뒤에 지정된 기록 번호
+const hashRecordNumber = Number(location.hash.substring(1));
+
 function updateRecordControls() {
     recordNumberInput.value = recordNumber;
     prevRecordButton.disabled = recordNumber <= 1;
@@ -362,8 +365,15 @@ fetchSheet(RECORD_GID).then(json => {
     const max = Number(value);
 
     maxRecordNumber = Number.isInteger(max) && max >= 1 ? max : 1;
-    recordNumber = maxRecordNumber;
-    updateRecordControls();
+
+    // URL hash 값이 있으면 기존 함수를 재사용하여 기록 번호를 설정
+    // 0 이하 또는 잘못된 값은 1로 보정하고, 최대값 초과는 최대값으로 보정
+    if (location.hash !== "") {
+        setRecordNumber(hashRecordNumber);
+    } else {
+        recordNumber = maxRecordNumber;
+        updateRecordControls();
+    }
 }).catch(() => {
     maxRecordNumber = 1;
     recordNumber = 1;
