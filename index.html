@@ -5,10 +5,10 @@
 <title>마작 순위</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="B1 마작 순위">
-<meta name="apple-mobile-web-app-capable" content="yes">
 
 <link rel="icon" href="images/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="16x16" href="images/icon-16x16.png">
@@ -36,6 +36,56 @@ h1 {
     font-size: 12px;
     opacity: 0.8;
     z-index: 1000;
+}
+
+.control-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.control-table td {
+    height: 42px;
+}
+
+.record-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.record-controls button,
+.record-controls input {
+    height: 32px;
+    box-sizing: border-box;
+}
+
+.record-controls button {
+    width: 36px;
+    padding: 0;
+    font-size: 18px;
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.record-controls button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.record-controls input {
+    width: 72px;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 14px;
+    color: inherit;
+    background: transparent;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
 
 .sticky-wrapper {
@@ -151,9 +201,32 @@ tbody tr:nth-child(even) {
 <div class="sticky-wrapper">
     <div class="top-section">
         <div class="left-box">
-            <table>
-                <tbody id="small-body"></tbody>
+            <table class="control-table">
+                <tbody>
+                    <tr>
+                        <td id="recent-record"></td>
+                        <td id="raw-date" colspan="3"></td>
+                    </tr>
+                    <tr>
+                        <td>동(東)</td>
+                        <td>남(南)</td>
+                        <td>서(西)</td>
+                        <td>북(北)</td>
+                    </tr>
+                    <tr>
+                        <td id="east-record"></td><td id="south-record"></td><td id="west-record"></td><td id="north-record"></td>
+                    </tr>
+                    <tr>
+                        <td id="east-score"></td><td id="south-score"></td><td id="west-score"></td><td id="north-score"></td>
+                    </tr>
+                </tbody>
             </table>
+
+            <div class="record-controls">
+                <button id="prev-record" type="button" aria-label="이전 기록">←</button>
+                <input id="record-number" type="number" min="1" step="1" inputmode="numeric" aria-label="기록 번호">
+                <button id="next-record" type="button" aria-label="다음 기록">→</button>
+            </div>
         </div>
 
         <div class="right-box">
@@ -202,6 +275,9 @@ const INFO_TEXT = `
 const SHEET_ID = "116rMCpgeAwOhMx5HNJk6vH16WJxvDPoNclyIQAc8pzs";
 const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
+const RECORD_GID = "1964322945";
+const RAW_GID = "1763894614";
+const HEADER_MARGIN = 3;
 
 /* ================= 공통 ================= */
 document.getElementById("info-text").textContent = INFO_TEXT;
@@ -230,6 +306,197 @@ function toNumber(v) {
     return Number(String(v).replace(/,/g, "").trim()) || 0;
 }
 
+/* ================= 기록 번호 컨트롤 ================= */
+const prevRecordButton = document.getElementById("prev-record");
+const recordNumberInput = document.getElementById("record-number");
+const nextRecordButton = document.getElementById("next-record");
+
+let recordNumber = 1;
+let maxRecordNumber = 1;
+
+function updateRecordControls() {
+    recordNumberInput.value = recordNumber;
+    prevRecordButton.disabled = recordNumber <= 1;
+    nextRecordButton.disabled = recordNumber >= maxRecordNumber;
+}
+
+function setRecordNumber(value) {
+    let n = Number(value);
+
+    if (!Number.isInteger(n) || n < 1) n = 1;
+    if (n > maxRecordNumber) n = maxRecordNumber;
+
+    recordNumber = n;
+    updateRecordControls();
+    renderTable();
+}
+
+prevRecordButton.addEventListener("click", () => {
+    if (recordNumber > 1) {
+        setRecordNumber(recordNumber - 1);
+        renderTable();
+    }
+});
+
+nextRecordButton.addEventListener("click", () => {
+    if (recordNumber < maxRecordNumber) {
+        setRecordNumber(recordNumber + 1);
+        renderTable();
+    }
+});
+
+recordNumberInput.addEventListener("input", () => {
+    recordNumberInput.value = recordNumberInput.value.replace(/[^0-9]/g, "");
+
+    if (recordNumberInput.value !== "") {
+        setRecordNumber(recordNumberInput.value);
+    }
+});
+
+recordNumberInput.addEventListener("blur", () => {
+    setRecordNumber(recordNumberInput.value);
+});
+
+fetchSheet(RECORD_GID).then(json => {
+    const value = json.table.rows[0]?.c[1]?.v;
+    const max = Number(value);
+
+    maxRecordNumber = Number.isInteger(max) && max >= 1 ? max : 1;
+    recordNumber = maxRecordNumber;
+    updateRecordControls();
+}).catch(() => {
+    maxRecordNumber = 1;
+    recordNumber = 1;
+    updateRecordControls();
+});
+
+/* ================= 최근 기록 ================= */
+let rawData = [];
+let listData = [];
+
+function formatRawDate(value) {
+    const match = String(value).match(
+        /^Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)$/
+    );
+
+    if (!match) return String(value);
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hour = Number(match[4]);
+    const minute = Number(match[5]);
+    const second = Number(match[6]);
+
+    // Google Sheets/GViz의 Date(month)는 0부터 시작한다.
+    const date = new Date(year, month, day, hour, minute, second);
+
+    const period = date.getHours() >= 12 ? "오후" : "오전";
+    const hour12 = date.getHours() % 12 || 12;
+
+    return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()} ` +
+           `${period} ${hour12}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+}
+
+function renderTable() {
+    const recentRecordCell = document.getElementById("recent-record");
+    const rawDateCell = document.getElementById("raw-date");
+    const eastRecordCell = document.getElementById("east-record");
+    const southRecordCell = document.getElementById("south-record");
+    const westRecordCell = document.getElementById("west-record");
+    const northRecordCell = document.getElementById("north-record");
+    const eastScoreCell = document.getElementById("east-score");
+    const southScoreCell = document.getElementById("south-score");
+    const westScoreCell = document.getElementById("west-score");
+    const northScoreCell = document.getElementById("north-score");
+
+    // 행번호 = 텍스트필드 값 + HEADER_MARGIN
+    // 배열 인덱스 = 행번호 - 1
+    const sheetRowNumber = recordNumber + HEADER_MARGIN;
+    const rowIndex = sheetRowNumber - 1;
+
+    // RAW_GID K열
+    const rawValue = rawData[rowIndex]?.[10] ?? "";
+
+    // RAW_GID A열
+    const rawDateValue = rawData[rowIndex]?.[0] ?? "";
+
+    // RAW_GID C/E/G/I열 → 동/남/서/북
+    const eastValue = rawData[rowIndex]?.[2] ?? "";
+    const southValue = rawData[rowIndex]?.[4] ?? "";
+    const westValue = rawData[rowIndex]?.[6] ?? "";
+    const northValue = rawData[rowIndex]?.[8] ?? "";
+
+    // MAIN_GID D열에서 동일한 값을 찾고 같은 행의 C열 값을 가져옴
+    const findListValue = value => {
+        const matchIndex = listData.findIndex(row =>
+            String(row?.[3] ?? "") === String(value)
+        );
+        return matchIndex >= 0 ? (listData[matchIndex]?.[2] ?? "") : "";
+    };
+
+    const eastMatchValue = findListValue(eastValue);
+    const southMatchValue = findListValue(southValue);
+    const westMatchValue = findListValue(westValue);
+    const northMatchValue = findListValue(northValue);
+
+    // RAW_GID D/F/H/J열 → 동/남/서/북 점수
+    const eastScore = rawData[rowIndex]?.[3] ?? "";
+    const southScore = rawData[rowIndex]?.[5] ?? "";
+    const westScore = rawData[rowIndex]?.[7] ?? "";
+    const northScore = rawData[rowIndex]?.[9] ?? "";
+
+    // RAW_GID P/Q/R/S열 → 동/남/서/북 계산점수
+    const eastCalcScore = rawData[rowIndex]?.[15] ?? "";
+    const southCalcScore = rawData[rowIndex]?.[16] ?? "";
+    const westCalcScore = rawData[rowIndex]?.[17] ?? "";
+    const northCalcScore = rawData[rowIndex]?.[18] ?? "";
+
+    const formatScore = (score, calcScore) => {
+        const calcNumber = Number(String(calcScore).replace(/,/g, "").trim());
+        const sign = calcNumber < 0 ? "" : "+";
+        return `${score}<br>(${sign}${calcScore})`;
+    };
+
+    recentRecordCell.innerHTML = `최근 기록<br>${rawValue}`;
+    rawDateCell.textContent = formatRawDate(rawDateValue);
+
+    eastRecordCell.innerHTML = `${eastValue}<br>(${eastMatchValue})`;
+    southRecordCell.innerHTML = `${southValue}<br>(${southMatchValue})`;
+    westRecordCell.innerHTML = `${westValue}<br>(${westMatchValue})`;
+    northRecordCell.innerHTML = `${northValue}<br>(${northMatchValue})`;
+
+    eastScoreCell.innerHTML = formatScore(eastScore, eastCalcScore);
+    southScoreCell.innerHTML = formatScore(southScore, southCalcScore);
+    westScoreCell.innerHTML = formatScore(westScore, westCalcScore);
+    northScoreCell.innerHTML = formatScore(northScore, northCalcScore);
+}
+
+Promise.all([
+    fetchSheet(RAW_GID),
+    fetchSheet(MAIN_GID)
+]).then(([rawJson, listJson]) => {
+    rawData = rawJson.table.rows.map(row =>
+        row.c.map(c => c?.v ?? "")
+    );
+
+    listData = listJson.table.rows.map(row =>
+        row.c.map(c => c?.v ?? "")
+    );
+
+    renderTable();
+}).catch(() => {
+    rawData = [];
+    listData = [];
+    renderTable();
+});
+
+const originalSetRecordNumber = setRecordNumber;
+setRecordNumber = function(value) {
+    originalSetRecordNumber(value);
+    renderTable();
+};
+
 /* ================= 닉네임 치환 ================= */
 function decorateNicknameByRank(nickname, rank) {
     if (rank === 1) return `🥇  ${nickname}`;
@@ -238,41 +505,7 @@ function decorateNicknameByRank(nickname, rank) {
     return nickname;
 }
 
-/* ================= 작은 표 ================= */
-fetchSheet(SMALL_GID).then(json => {
-    const body = document.getElementById("small-body");
 
-    json.table.rows.forEach((row, idx) => {
-        const tr = document.createElement("tr");
-
-        if (idx === 0) {
-            const td1 = document.createElement("td");
-            td1.innerHTML = (row.c[0]?.v ?? "").toString().replace(/\n/g, "<br>");
-            tr.appendChild(td1);
-
-            const tdMerge = document.createElement("td");
-            tdMerge.colSpan = 3;
-
-            const merged = [
-                row.c[1]?.v,
-                row.c[2]?.v,
-                row.c[3]?.v
-            ].filter(v => v !== null && v !== undefined)
-             .join("\n");
-
-            tdMerge.innerHTML = merged.replace(/\n/g, "<br>");
-            tr.appendChild(tdMerge);
-        } else {
-            row.c.forEach(c => {
-                const td = document.createElement("td");
-                td.innerHTML = (c?.v ?? "").toString().replace(/\n/g, "<br>");
-                tr.appendChild(td);
-            });
-        }
-
-        body.appendChild(tr);
-    });
-});
 
 /* ================= 메인 랭킹 ================= */
 fetchSheet(MAIN_GID).then(json => {
