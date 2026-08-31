@@ -328,6 +328,7 @@ function setRecordNumber(value) {
 
     recordNumber = n;
     updateRecordControls();
+    renderTable();
 }
 
 prevRecordButton.addEventListener("click", () => {
@@ -380,8 +381,8 @@ function formatRawDate(value) {
     const minute = Number(match[5]);
     const second = Number(match[6]);
 
-    // Date(월)은 JavaScript Date와 달리 1월=0이 아니라 1월=1 기준
-    const date = new Date(year, month - 1, day, hour, minute, second);
+    // Google Sheets/GViz의 Date(month)는 0부터 시작한다.
+    const date = new Date(year, month, day, hour, minute, second);
 
     const period = date.getHours() >= 12 ? "오후" : "오전";
     const hour12 = date.getHours() % 12 || 12;
@@ -395,7 +396,10 @@ function renderTable() {
     const rawDateCell = document.getElementById("raw-date");
 
     // 행번호 = 텍스트필드 값 + HEADER_MARGIN
-    const rowIndex = recordNumber - 1 + HEADER_MARGIN;
+    const rowNumber = recordNumber + HEADER_MARGIN;
+
+    // 행번호는 시트의 실제 행 번호이므로, 배열에서는 1을 뺀 위치를 사용한다.
+    const rowIndex = rowNumber - 1;
 
     // RAW_GID K열의 값을 그대로 출력
     const rawValue = rawData[rowIndex]?.[10] ?? "";
@@ -416,12 +420,6 @@ fetchSheet(RAW_GID).then(json => {
     rawData = [];
     renderTable();
 });
-
-const originalSetRecordNumber = setRecordNumber;
-setRecordNumber = function(value) {
-    originalSetRecordNumber(value);
-    renderTable();
-};
 
 /* ================= 닉네임 치환 ================= */
 function decorateNicknameByRank(nickname, rank) {
