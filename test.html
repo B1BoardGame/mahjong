@@ -332,11 +332,17 @@ function setRecordNumber(value) {
 }
 
 prevRecordButton.addEventListener("click", () => {
-    if (recordNumber > 1) setRecordNumber(recordNumber - 1);
+    if (recordNumber > 1) {
+        setRecordNumber(recordNumber - 1);
+        renderTable();
+    }
 });
 
 nextRecordButton.addEventListener("click", () => {
-    if (recordNumber < maxRecordNumber) setRecordNumber(recordNumber + 1);
+    if (recordNumber < maxRecordNumber) {
+        setRecordNumber(recordNumber + 1);
+        renderTable();
+    }
 });
 
 recordNumberInput.addEventListener("input", () => {
@@ -396,10 +402,9 @@ function renderTable() {
     const rawDateCell = document.getElementById("raw-date");
 
     // 행번호 = 텍스트필드 값 + HEADER_MARGIN
-    const rowNumber = recordNumber + HEADER_MARGIN;
-
-    // 행번호는 시트의 실제 행 번호이므로, 배열에서는 1을 뺀 위치를 사용한다.
-    const rowIndex = rowNumber - 1;
+    // 예: 704 + 3 = 707번째 행 → 배열 인덱스 706
+    const sheetRowNumber = recordNumber + HEADER_MARGIN;
+    const rowIndex = sheetRowNumber - 1;
 
     // RAW_GID K열의 값을 그대로 출력
     const rawValue = rawData[rowIndex]?.[10] ?? "";
