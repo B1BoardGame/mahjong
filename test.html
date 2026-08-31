@@ -366,7 +366,31 @@ fetchSheet(RECORD_GID).then(json => {
 /* ================= 최근 기록 ================= */
 let rawData = [];
 
-function renderRecentRecord() {
+function formatRawDate(value) {
+    const match = String(value).match(
+        /^Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)$/
+    );
+
+    if (!match) return String(value);
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hour = Number(match[4]);
+    const minute = Number(match[5]);
+    const second = Number(match[6]);
+
+    // Date(월)은 JavaScript Date와 달리 1월=0이 아니라 1월=1 기준
+    const date = new Date(year, month - 1, day, hour, minute, second);
+
+    const period = date.getHours() >= 12 ? "오후" : "오전";
+    const hour12 = date.getHours() % 12 || 12;
+
+    return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()} ` +
+           `${period} ${hour12}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+}
+
+function renderTable() {
     const cell = document.getElementById("recent-record");
     const rawDateCell = document.getElementById("raw-date");
 
@@ -376,27 +400,27 @@ function renderRecentRecord() {
     // RAW_GID K열의 값을 그대로 출력
     const rawValue = rawData[rowIndex]?.[10] ?? "";
 
-    // RAW_GID A열의 값을 그대로 출력
+    // RAW_GID A열의 값을 날짜 형식으로 변환하여 출력
     const rawDateValue = rawData[rowIndex]?.[0] ?? "";
 
     cell.innerHTML = `최근 기록<br>${rawValue}`;
-    rawDateCell.textContent = rawDateValue;
+    rawDateCell.textContent = formatRawDate(rawDateValue);
 }
 
 fetchSheet(RAW_GID).then(json => {
     rawData = json.table.rows.map(row =>
         row.c.map(c => c?.v ?? "")
     );
-    renderRecentRecord();
+    renderTable();
 }).catch(() => {
     rawData = [];
-    renderRecentRecord();
+    renderTable();
 });
 
 const originalSetRecordNumber = setRecordNumber;
 setRecordNumber = function(value) {
     originalSetRecordNumber(value);
-    renderRecentRecord();
+    renderTable();
 };
 
 /* ================= 닉네임 치환 ================= */
