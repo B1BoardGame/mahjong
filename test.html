@@ -5,10 +5,10 @@
 <title>마작 순위</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="B1 마작 순위">
-<meta name="apple-mobile-web-app-capable" content="yes">
 
 <link rel="icon" href="images/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="16x16" href="images/icon-16x16.png">
@@ -277,7 +277,6 @@ const MAIN_GID = "1729121045";
 const SMALL_GID = "801258754";
 const RECORD_GID = "1964322945";
 const RAW_GID = "1763894614";
-const LIST_GID = "1729121045";
 const HEADER_MARGIN = 3;
 
 /* ================= 공통 ================= */
@@ -428,7 +427,7 @@ function renderTable() {
     const westValue = rawData[rowIndex]?.[6] ?? "";
     const northValue = rawData[rowIndex]?.[8] ?? "";
 
-    // LIST_GID D열에서 동일한 값을 찾고 같은 행의 C열 값을 가져옴
+    // MAIN_GID D열에서 동일한 값을 찾고 같은 행의 C열 값을 가져옴
     const findListValue = value => {
         const matchIndex = listData.findIndex(row =>
             String(row?.[3] ?? "") === String(value)
@@ -475,7 +474,7 @@ function renderTable() {
 
 Promise.all([
     fetchSheet(RAW_GID),
-    fetchSheet(LIST_GID)
+    fetchSheet(MAIN_GID)
 ]).then(([rawJson, listJson]) => {
     rawData = rawJson.table.rows.map(row =>
         row.c.map(c => c?.v ?? "")
